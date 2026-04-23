@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "929296353864",
+    "project_id": "fonoapp-3918b",
+    "storage_bucket": "fonoapp-3918b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:929296353864:android:58aef3d9703f1a3174667d",
+        "android_client_info": {
+          "package_name": "com.example.fono_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDdKdvKJ-A-aYwXPN3xanorgb8kH-lBp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math;
 import '../models/pictograma.dart';
 import '../services/tts_service.dart';
+import 'admin_panel_screen.dart';
 
 class TableroCAAScreen extends StatefulWidget {
   const TableroCAAScreen({super.key});
@@ -19,6 +22,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
   late AnimationController _gridIntroController;
   late AnimationController _bgAnimationController;
 
+  bool _isPro = false; // <-- EL CEREBRO DEL PAYWALL
+
   @override
   void initState() {
     super.initState();
@@ -26,15 +31,29 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
 
     _gridIntroController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500), // Un poco más rápida la entrada inicial
+      duration: const Duration(milliseconds: 1500),
     );
     
     _bgAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 15), // Más lento para que consuma menos CPU
+      duration: const Duration(seconds: 15),
     )..repeat(reverse: true);
 
+    _cargarPerfilUsuario();
     _gridIntroController.forward();
+  }
+
+  // --- LECTURA DE LA BASE DE DATOS ---
+  Future<void> _cargarPerfilUsuario() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _isPro = doc.data()?['isPro'] ?? false;
+        });
+      }
+    }
   }
 
   @override
@@ -96,7 +115,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.warning_rounded, color: Colors.white, size: 30),
+                    Icon(Icons.warning, color: Colors.white, size: 30),
                     SizedBox(width: 15),
                     Text('¡Arma una frase primero!', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
                   ],
@@ -107,6 +126,53 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
         ),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.only(bottom: 40, left: 20, right: 20),
+      ),
+    );
+  }
+
+  // --- EL POP-UP DE COMPRA ---
+  void _mostrarPaywall() {
+    HapticFeedback.heavyImpact();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        title: Column(
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: Colors.amber.shade400, size: 60),
+            const SizedBox(height: 10),
+            const Text('Desbloquea FonoApp Pro', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+          ],
+        ),
+        content: const Text(
+          'Obtén acceso ilimitado a más de 80 palabras clínicas, animaciones terapéuticas y funciones exclusivas.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, color: Colors.blueGrey),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Quizás más tarde', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Aquí en el futuro conectaremos el link de Stripe
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Próximamente: Integración con pagos")));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade500,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              elevation: 4,
+            ),
+            child: const Text('MEJORAR AHORA', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+          ),
+        ],
       ),
     );
   }
@@ -150,21 +216,62 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
   }
 
   Widget _construirCabecera() {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    // BLINDAJE: Convertimos el correo a minúsculas y quitamos espacios accidentales
+    final String correoSeguro = user?.email?.toLowerCase().trim() ?? '';
+    final bool esAdmin = correoSeguro == 'fonoaudiologia41@gmail.com';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'FonoApp Pro', 
-            style: TextStyle(
-              fontWeight: FontWeight.w900, 
-              fontSize: 34, 
-              letterSpacing: -1.5,
-              color: Color(0xFF1E293B), 
-            )
+          Row(
+            children: [
+              const Text('FonoApp ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 34, color: Color(0xFF1E293B))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isPro ? Colors.amber.shade400 : Colors.blueGrey.shade200,
+                  borderRadius: BorderRadius.circular(12)
+                ),
+                child: Text(_isPro ? 'PRO' : 'DEMO', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14)),
+              )
+            ],
           ),
-          _construirVoiceIndicator()
+          Row(
+            children: [
+              // BOTÓN SECRETO: Solo aparece para el admin
+              if (esAdmin)
+                Container(
+                  margin: const EdgeInsets.only(right: 15),
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                    label: const Text('PANEL ADMIN', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.shade600,
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminPanelScreen()),
+                    ),
+                  ),
+                ),
+                
+              // BOTÓN DE CERRAR SESIÓN (Ahora más visible)
+              TextButton.icon(
+                icon: const Icon(Icons.logout, color: Colors.redAccent),
+                label: const Text('Salir', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                onPressed: () => FirebaseAuth.instance.signOut(),
+              ),
+              const SizedBox(width: 10),
+              
+              _construirVoiceIndicator(),
+            ],
+          )
         ],
       ),
     );
@@ -190,7 +297,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
               ),
             ]
           ),
-          child: Icon(Icons.waves_rounded, color: Colors.blueAccent.shade400, size: 28),
+          child: Icon(Icons.waves, color: Colors.blueAccent.shade400, size: 28),
         );
       },
     );
@@ -226,7 +333,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
                           offset: Offset(0, math.sin(v * math.pi * 2) * 5), 
                           child: child,
                         ),
-                        child: Icon(Icons.auto_awesome_rounded, size: 55, color: Colors.grey.shade400),
+                        child: Icon(Icons.auto_awesome, size: 55, color: Colors.grey.shade400),
                       ),
                       const SizedBox(height: 12),
                       Text('¡Arma tu frase mágica!', 
@@ -237,16 +344,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
                     scrollDirection: Axis.horizontal,
                     itemCount: _oracionActual.length,
                     itemBuilder: (context, index) {
-                      // NUEVA ANIMACIÓN DE INSERCIÓN (Pop & Drop)
                       return TweenAnimationBuilder(
-                        // ValueKey es clave: Le dice a Flutter que es una tarjeta nueva para que dispare la animación
                         key: ValueKey('${_oracionActual[index].palabra}_$index'), 
                         duration: const Duration(milliseconds: 600),
                         curve: Curves.elasticOut, 
                         tween: Tween<double>(begin: 0, end: 1),
                         builder: (context, double val, child) {
                           return Transform.translate(
-                            // La tarjeta "salta" desde 40 píxeles más abajo hacia su posición 0
                             offset: Offset(0, 40 * (1 - val)), 
                             child: Opacity(
                               opacity: val.clamp(0.0, 1.0), 
@@ -278,13 +382,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
         Row(
           children: [
             _BotonControlUltra(
-              icono: Icons.backspace_rounded, 
+              icono: Icons.backspace, 
               color: Colors.redAccent, 
               onTap: _borrarUltimo
             ),
             const SizedBox(width: 8),
             _BotonControlUltra(
-              icono: Icons.delete_sweep_rounded, 
+              icono: Icons.delete_sweep, 
               color: Colors.blueGrey, 
               onTap: _borrarTodo
             ),
@@ -313,9 +417,17 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
             ),
             child: Row(
               children: [
-                Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+                Icon(Icons.play_arrow, color: canSpeak ? Colors.white : Colors.grey.shade600, size: 32),
                 const SizedBox(width: 5),
-                Text('HABLAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2)),
+                Text(
+                  'HABLAR', 
+                  style: TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.w900, 
+                    color: canSpeak ? Colors.white : Colors.grey.shade600, 
+                    letterSpacing: 1.2
+                  )
+                ),
               ],
             ),
           ),
@@ -340,6 +452,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
           final double start = (index / _vocabulario.length) * 0.7; 
           final double end = start + 0.3; 
 
+          // LÓGICA DEL PAYWALL: Las primeras 20 palabras son gratis, el resto se bloquea si no es Pro
+          bool isLocked = !_isPro && index >= 20;
+
           return AnimatedBuilder(
             animation: _gridIntroController,
             builder: (context, child) {
@@ -357,7 +472,10 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
             },
             child: TarjetaSquish3D(
               pic: _vocabulario[index],
-              onTap: () => _agregarPictograma(_vocabulario[index]),
+              isLocked: isLocked, // Le pasamos el estado de bloqueo a la tarjeta
+              onTap: isLocked 
+                ? _mostrarPaywall // Si está bloqueada, abre el pop-up de pago
+                : () => _agregarPictograma(_vocabulario[index]),
             ),
           );
         },
@@ -389,12 +507,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
   }
 }
 
-// --- WIDGET OPTIMIZADO: TARJETA "SQUISH 3D" ON-DEMAND ---
+// --- TARJETA SQUISH 3D (Ahora maneja candados) ---
 class TarjetaSquish3D extends StatefulWidget {
   final Pictograma pic;
   final VoidCallback onTap;
+  final bool isLocked;
 
-  const TarjetaSquish3D({super.key, required this.pic, required this.onTap});
+  const TarjetaSquish3D({super.key, required this.pic, required this.onTap, this.isLocked = false});
 
   @override
   State<TarjetaSquish3D> createState() => _TarjetaSquish3DState();
@@ -408,7 +527,6 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    // Controlador más rápido (1.5s ida y vuelta) pero que NO arranca automáticamente
     _floatController = AnimationController(vsync: this, duration: const Duration(milliseconds: 750));
   }
 
@@ -419,8 +537,8 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
   }
 
   void _startHover() {
+    if (widget.isLocked) return; // Si está bloqueada, no hace la animación bonita
     setState(() => _isHovered = true);
-    // Solo cuando hay hover, la tarjeta empieza a respirar
     _floatController.repeat(reverse: true);
   }
 
@@ -429,20 +547,19 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
       _isHovered = false; 
       _isPressed = false; 
     });
-    // Al sacar el ratón, se detiene el ciclo y vuelve suavemente a su posición base 0
     _floatController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
-  void _onInteractionStart() {
-    setState(() { _isPressed = true; });
-  }
-
-  void _onInteractionEnd() {
-    setState(() { _isPressed = false; });
-  }
+  void _onInteractionStart() => setState(() => _isPressed = true);
+  void _onInteractionEnd() => setState(() => _isPressed = false);
 
   @override
   Widget build(BuildContext context) {
+    // Si está bloqueada, forzamos colores grises opacos
+    final Color bgColor = widget.isLocked ? Colors.grey.shade200 : widget.pic.colorFondo;
+    final Color iconColor = widget.isLocked ? Colors.grey.shade400 : Colors.black.withOpacity(0.75);
+    final Color textColor = widget.isLocked ? Colors.grey.shade500 : Colors.black.withOpacity(0.85);
+
     return MouseRegion(
       onEnter: (_) => _startHover(),
       onExit: (_) => _stopHover(),
@@ -456,9 +573,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
         child: AnimatedBuilder(
           animation: _floatController,
           builder: (context, child) {
-            // La tarjeta solo flota si está hovered pero NO si la estamos presionando
             double floatY = (_isHovered && !_isPressed) ? math.sin(_floatController.value * math.pi) * -6 : 0;
-            
             double scaleX = _isPressed ? 1.05 : (_isHovered ? 1.05 : 1.0);
             double scaleY = _isPressed ? 0.90 : (_isHovered ? 1.05 : 1.0);
 
@@ -477,10 +592,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                colors: [
-                  Colors.white.withOpacity(0.5),
-                  widget.pic.colorFondo,
-                ],
+                colors: [Colors.white.withOpacity(0.5), bgColor],
                 center: const Alignment(-0.5, -0.5),
                 radius: 1.5,
               ),
@@ -488,31 +600,38 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
               border: Border.all(color: Colors.white.withOpacity(0.9), width: _isHovered ? 4 : 2),
               boxShadow: [
                 BoxShadow(
-                  color: widget.pic.colorFondo.withOpacity(0.6).withBlue(100), 
+                  color: bgColor.withOpacity(0.6).withBlue(100), 
                   blurRadius: _isPressed ? 5 : (_isHovered ? 25 : 15),
                   offset: Offset(0, _isPressed ? 3 : (_isHovered ? 12 : 8)),
                 ),
               ],
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                AnimatedScale(
-                  scale: _isPressed ? 0.9 : 1.0,
-                  duration: const Duration(milliseconds: 100),
-                  child: Icon(widget.pic.icono, size: 65, color: Colors.black.withOpacity(0.75)),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedScale(
+                      scale: _isPressed ? 0.9 : 1.0,
+                      duration: const Duration(milliseconds: 100),
+                      child: Icon(widget.pic.icono, size: 65, color: iconColor),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.pic.palabra,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  widget.pic.palabra,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.w900, 
-                    letterSpacing: -0.5,
-                    color: Colors.black.withOpacity(0.85),
-                  ),
-                ),
+                // Icono de candado superpuesto
+                if (widget.isLocked)
+                  Positioned(
+                    top: 15,
+                    right: 15,
+                    child: Icon(Icons.lock_rounded, color: Colors.blueGrey.shade300, size: 28),
+                  )
               ],
             ),
           ),

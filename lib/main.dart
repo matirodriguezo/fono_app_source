@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'screens/tablero_caa_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; 
+import 'screens/auth_gate.dart'; // <--- IMPORTANTE: Importamos el vigilante
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const FonoApp());
 }
 
@@ -12,13 +17,13 @@ class FonoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SAAC App',
+      title: 'FonoApp Pro',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
-        fontFamily: 'Roboto', // Una fuente limpia para lectura
+        fontFamily: 'Roboto',
       ),
-      home: const TableroCAAScreen(),
+      home: const AuthGate(), // <--- IMPORTANTE: El home ahora es el AuthGate
       debugShowCheckedModeBanner: false,
     );
   }
