@@ -24,6 +24,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Aquí declaramos tu carpeta de imágenes
+  # Agrega estas líneas respetando exactamente los espacios
   assets:
-    - assets/
+    - assets/images/
