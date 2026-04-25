@@ -11,9 +11,10 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
+  final _nombreController = TextEditingController(); // NUEVO: Campo de nombre
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController(); // Nuevo campo
+  final _confirmPasswordController = TextEditingController(); 
   bool _isLoading = false;
 
   late AnimationController _bgAnimationController;
@@ -29,6 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _nombreController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -47,6 +49,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   }
 
   Future<void> _crearCuenta() async {
+    if (_nombreController.text.trim().isEmpty) {
+      _mostrarError('Por favor, ingresa un nombre o alias.');
+      return;
+    }
     if (_passwordController.text != _confirmPasswordController.text) {
       _mostrarError('Las contraseñas no coinciden. Inténtalo de nuevo.');
       return;
@@ -54,17 +60,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
     setState(() => _isLoading = true);
     try {
-      // 1. Crear cuenta en Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
       
-      // 2. LA MAGIA: Crear el perfil del usuario en Firestore
-      // Usamos el UID (ID único) del usuario como nombre del documento
+      // NUEVO: Guardamos el nombre en Firestore
       await FirebaseFirestore.instance.collection('usuarios').doc(userCredential.user!.uid).set({
+        'nombre': _nombreController.text.trim(), 
         'email': _emailController.text.trim(),
-        'isPro': false, // ¡POR DEFECTO TODOS SON VERSIÓN DEMO!
+        'isPro': false, 
         'fechaRegistro': FieldValue.serverTimestamp(),
       });
       
@@ -86,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blueGrey),
-          onPressed: () => Navigator.pop(context), // Vuelve al Login
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: AnimatedBuilder(
@@ -96,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topRight,
-                end: Alignment.bottomLeft, // Invertimos el ángulo para que se sienta distinto al Login
+                end: Alignment.bottomLeft,
                 colors: [
                   Color.lerp(const Color(0xFFF3E8FF), const Color(0xFFE0F2FE), _bgAnimationController.value)!,
                   Color.lerp(const Color(0xFFE0E7FF), const Color(0xFFF1F5F9), _bgAnimationController.value)!,
@@ -133,6 +138,20 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   Text('Únete a FonoApp Pro', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
                   const SizedBox(height: 32),
                   
+                  // NUEVO CAMPO: Nombre
+                  TextField(
+                    controller: _nombreController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Nombre o Alias',
+                      prefixIcon: const Icon(Icons.badge_outlined),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -180,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         child: ElevatedButton(
                           onPressed: _crearCuenta,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal.shade500, // Color verde/teal para "Crear"
+                            backgroundColor: Colors.teal.shade500, 
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             elevation: 8,
@@ -192,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   
                   if (!_isLoading)
                     TextButton(
-                      onPressed: () => Navigator.pop(context), // Vuelve al login
+                      onPressed: () => Navigator.pop(context),
                       child: Text('¿Ya tienes cuenta? Inicia sesión', style: TextStyle(color: Colors.blueGrey.shade600, fontWeight: FontWeight.w600)),
                     )
                 ],

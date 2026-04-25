@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+import 'landing_screen.dart'; // <-- AHORA IMPORTAMOS LA LANDING PAGE
 import 'tablero_caa_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -17,12 +17,12 @@ class AuthGate extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.blue)));
         }
         
-        // Si NO hay datos de usuario, lo mandamos al Login
+        // Si NO hay datos de usuario, lo mandamos a la presentación comercial
         if (!snapshot.hasData) {
-          return const LoginScreen();
+          return const LandingScreen(); // <-- CAMBIO APLICADO AQUÍ
         }
         
-        // Si SÍ hay usuario, lo dejamos pasar al Tablero
+        // Si SÍ hay usuario, lo dejamos pasar directamente al Tablero
         return const TableroCAAScreen();
       },
     );

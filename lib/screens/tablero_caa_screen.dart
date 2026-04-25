@@ -6,6 +6,8 @@ import 'dart:math' as math;
 import '../models/pictograma.dart';
 import '../services/tts_service.dart';
 import 'admin_panel_screen.dart';
+import 'dart:async';
+import 'profile_screen.dart';
 
 class TableroCAAScreen extends StatefulWidget {
   const TableroCAAScreen({super.key});
@@ -16,18 +18,27 @@ class TableroCAAScreen extends StatefulWidget {
 
 class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProviderStateMixin {
   final List<Pictograma> _oracionActual = [];
-  late final List<Pictograma> _vocabulario;
+  
+  late final List<CarpetaCAA> _carpetas;
+  late final List<Pictograma> _palabrasFrecuentes;
+  
+  // Control de navegación interna
+  CarpetaCAA? _carpetaActual;
+
   final TtsService _motorVoz = TtsService();
 
   late AnimationController _gridIntroController;
   late AnimationController _bgAnimationController;
 
-  bool _isPro = false; // <-- EL CEREBRO DEL PAYWALL
+  bool _isPro = false;
+  String _nombreUsuario = 'Amigo';
+  StreamSubscription<DocumentSnapshot>? _perfilSubscription;
 
   @override
   void initState() {
     super.initState();
-    _vocabulario = RepositorioVocabulario.obtenerVocabularioBase();
+    _carpetas = RepositorioVocabulario.obtenerCarpetas();
+    _palabrasFrecuentes = RepositorioVocabulario.obtenerPalabrasFrecuentes();
 
     _gridIntroController = AnimationController(
       vsync: this,
@@ -43,24 +54,52 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
     _gridIntroController.forward();
   }
 
-  // --- LECTURA DE LA BASE DE DATOS ---
-  Future<void> _cargarPerfilUsuario() async {
+  void _cargarPerfilUsuario() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).get();
-      if (doc.exists && mounted) {
-        setState(() {
-          _isPro = doc.data()?['isPro'] ?? false;
-        });
-      }
+      _perfilSubscription = FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && mounted) {
+          setState(() {
+            _isPro = doc.data()?['isPro'] ?? false;
+            _nombreUsuario = doc.data()?['nombre'] ?? 'Amigo';
+          });
+        }
+      });
     }
   }
 
   @override
   void dispose() {
+    _perfilSubscription?.cancel();
     _gridIntroController.dispose();
     _bgAnimationController.dispose();
     super.dispose();
+  }
+
+  void _abrirCarpeta(CarpetaCAA carpeta) {
+    if (carpeta.esProOnly && !_isPro) {
+      _mostrarPaywall();
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _carpetaActual = carpeta;
+    });
+    _gridIntroController.reset();
+    _gridIntroController.forward();
+  }
+
+  void _volverACarpetas() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _carpetaActual = null;
+    });
+    _gridIntroController.reset();
+    _gridIntroController.forward();
   }
 
   void _agregarPictograma(Pictograma pic) {
@@ -130,7 +169,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
     );
   }
 
-  // --- EL POP-UP DE COMPRA ---
   void _mostrarPaywall() {
     HapticFeedback.heavyImpact();
     showDialog(
@@ -146,7 +184,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
           ],
         ),
         content: const Text(
-          'Obtén acceso ilimitado a más de 80 palabras clínicas, animaciones terapéuticas y funciones exclusivas.',
+          'Accede a carpetas avanzadas como Entorno, Personas y Acciones complejas para armar oraciones completas.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: Colors.blueGrey),
         ),
@@ -160,8 +198,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Aquí en el futuro conectaremos el link de Stripe
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Próximamente: Integración con pagos")));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contacta con la administradora para activar tu cuenta PRO")));
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.amber.shade500,
@@ -170,7 +207,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               elevation: 4,
             ),
-            child: const Text('MEJORAR AHORA', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+            child: const Text('CÓMO MEJORAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
           ),
         ],
       ),
@@ -206,8 +243,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
             children: [
               _construirCabecera(),
               _construirBarraOracionGlass(),
-              const SizedBox(height: 15),
-              _construirGrillaVocabulario(),
+              const SizedBox(height: 10),
+              _construirBarraNavegacionInterna(), 
+              _construirGrillaPrincipal(), 
             ],
           ),
         ),
@@ -217,10 +255,10 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
 
   Widget _construirCabecera() {
     final user = FirebaseAuth.instance.currentUser;
-    
-    // BLINDAJE: Convertimos el correo a minúsculas y quitamos espacios accidentales
     final String correoSeguro = user?.email?.toLowerCase().trim() ?? '';
     final bool esAdmin = correoSeguro == 'fonoaudiologia41@gmail.com';
+
+    final String primerNombre = _nombreUsuario.split(' ').first;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
@@ -229,7 +267,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
         children: [
           Row(
             children: [
-              const Text('FonoApp ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 34, color: Color(0xFF1E293B))),
+              Text('¡Hola $primerNombre! 👋 ', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 30, color: Color(0xFF1E293B))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -242,7 +280,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
           ),
           Row(
             children: [
-              // BOTÓN SECRETO: Solo aparece para el admin
               if (esAdmin)
                 Container(
                   margin: const EdgeInsets.only(right: 15),
@@ -254,52 +291,50 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
                       foregroundColor: Colors.white,
                       elevation: 4,
                     ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminPanelScreen()),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen())),
+                  ),
+                ),
+              
+              // Botón de Cerrar Sesión
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.redAccent, size: 28),
+                tooltip: 'Cerrar Sesión',
+                onPressed: () => FirebaseAuth.instance.signOut(),
+              ),
+              const SizedBox(width: 15),
+
+              // Botón de Mi Perfil (Destacado y a la extrema derecha)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.blueGrey.withOpacity(0.3), width: 2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(25),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person_outline, color: Colors.blueGrey, size: 24),
+                          const SizedBox(width: 8),
+                          const Text('Mi Perfil', style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w900, fontSize: 16)),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                
-              // BOTÓN DE CERRAR SESIÓN (Ahora más visible)
-              TextButton.icon(
-                icon: const Icon(Icons.logout, color: Colors.redAccent),
-                label: const Text('Salir', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                onPressed: () => FirebaseAuth.instance.signOut(),
               ),
-              const SizedBox(width: 10),
-              
-              _construirVoiceIndicator(),
             ],
           )
         ],
       ),
-    );
-  }
-
-  Widget _construirVoiceIndicator() {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(seconds: 2),
-      curve: Curves.easeInOutSine,
-      builder: (context, double val, _) {
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.blue.withOpacity(0.3), width: 2), 
-            boxShadow: [
-              BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.2 + (val * 0.3)), 
-                blurRadius: 15 + (val * 15), 
-                spreadRadius: val * 5,
-              ),
-            ]
-          ),
-          child: Icon(Icons.waves, color: Colors.blueAccent.shade400, size: 28),
-        );
-      },
     );
   }
 
@@ -419,15 +454,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
               children: [
                 Icon(Icons.play_arrow, color: canSpeak ? Colors.white : Colors.grey.shade600, size: 32),
                 const SizedBox(width: 5),
-                Text(
-                  'HABLAR', 
-                  style: TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.w900, 
-                    color: canSpeak ? Colors.white : Colors.grey.shade600, 
-                    letterSpacing: 1.2
-                  )
-                ),
+                Text('HABLAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: canSpeak ? Colors.white : Colors.grey.shade600, letterSpacing: 1.2)),
               ],
             ),
           ),
@@ -436,24 +463,59 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
     );
   }
 
-  Widget _construirGrillaVocabulario() {
+  Widget _construirBarraNavegacionInterna() {
+    if (_carpetaActual == null) return const SizedBox.shrink(); 
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 5.0),
+      child: Row(
+        children: [
+          ElevatedButton.icon(
+            onPressed: _volverACarpetas,
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            label: const Text('Volver a Categorías', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueGrey.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+          ),
+          const SizedBox(width: 15),
+          _carpetaActual!.rutaImagen != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: Image.asset(_carpetaActual!.rutaImagen!, width: 28, height: 28, fit: BoxFit.cover)
+                )
+              : Icon(_carpetaActual!.icono, color: Colors.blueGrey, size: 28),
+          const SizedBox(width: 8),
+          Text(
+            _carpetaActual!.nombre,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.blueGrey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construirGrillaPrincipal() {
+    final int itemCount = _carpetaActual == null 
+        ? _palabrasFrecuentes.length + _carpetas.length 
+        : _carpetaActual!.pictogramas.length;
+
     return Expanded(
       child: GridView.builder(
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 160,
-          childAspectRatio: 0.85, 
+          childAspectRatio: 1.00, 
           crossAxisSpacing: 18,
           mainAxisSpacing: 22, 
         ),
-        itemCount: _vocabulario.length,
+        itemCount: itemCount,
         itemBuilder: (context, index) {
-          final double start = (index / _vocabulario.length) * 0.7; 
+          final double start = (index / itemCount) * 0.7; 
           final double end = start + 0.3; 
-
-          // LÓGICA DEL PAYWALL: Las primeras 20 palabras son gratis, el resto se bloquea si no es Pro
-          bool isLocked = !_isPro && index >= 20;
 
           return AnimatedBuilder(
             animation: _gridIntroController,
@@ -470,44 +532,215 @@ class _TableroCAAScreenState extends State<TableroCAAScreen> with TickerProvider
                 ),
               );
             },
-            child: TarjetaSquish3D(
-              pic: _vocabulario[index],
-              isLocked: isLocked, // Le pasamos el estado de bloqueo a la tarjeta
-              onTap: isLocked 
-                ? _mostrarPaywall // Si está bloqueada, abre el pop-up de pago
-                : () => _agregarPictograma(_vocabulario[index]),
-            ),
+            child: _construirElementoGrilla(index), 
           );
         },
       ),
     );
   }
 
+  Widget _construirElementoGrilla(int index) {
+    if (_carpetaActual != null) {
+      return TarjetaSquish3D(
+        pic: _carpetaActual!.pictogramas[index],
+        isLocked: false, 
+        onTap: () => _agregarPictograma(_carpetaActual!.pictogramas[index]),
+      );
+    }
+
+    if (index < _palabrasFrecuentes.length) {
+      return TarjetaSquish3D(
+        pic: _palabrasFrecuentes[index],
+        isLocked: false, 
+        onTap: () => _agregarPictograma(_palabrasFrecuentes[index]),
+      );
+    }
+
+    final int carpetaIndex = index - _palabrasFrecuentes.length;
+    final carpeta = _carpetas[carpetaIndex];
+    
+    return TarjetaCarpeta3D(
+      carpeta: carpeta,
+      isLocked: carpeta.esProOnly && !_isPro,
+      onTap: () => _abrirCarpeta(carpeta),
+    );
+  }
+
   Widget _construirMiniTarjeta(Pictograma pic) {
     return Container(
-      width: 95,
-      margin: const EdgeInsets.only(right: 12),
+      width: 100, 
+      height: 100, 
+      margin: const EdgeInsets.only(right: 12, top: 5, bottom: 5), 
       decoration: BoxDecoration(
         color: pic.colorFondo,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white, width: 3),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 8)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08), 
+            blurRadius: 10, 
+            offset: const Offset(0, 8)
+          ),
         ]
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(pic.icono, size: 40, color: Colors.black87),
-          const SizedBox(height: 6),
-          Text(pic.palabra, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: -0.5), overflow: TextOverflow.ellipsis),
-        ],
+      child: pic.rutaImagen != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(19), 
+              child: Image.asset(
+                pic.rutaImagen!,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(pic.icono, size: 40, color: Colors.black87),
+                const SizedBox(height: 4),
+                Text(
+                  pic.palabra, 
+                  style: const TextStyle(
+                    fontSize: 13, 
+                    fontWeight: FontWeight.w900, 
+                    letterSpacing: -0.5
+                  ), 
+                  overflow: TextOverflow.ellipsis
+                ),
+              ],
+            ),
+    );
+  } 
+}
+
+class TarjetaCarpeta3D extends StatefulWidget {
+  final CarpetaCAA carpeta;
+  final VoidCallback onTap;
+  final bool isLocked;
+
+  const TarjetaCarpeta3D({super.key, required this.carpeta, required this.onTap, this.isLocked = false});
+
+  @override
+  State<TarjetaCarpeta3D> createState() => _TarjetaCarpeta3DState();
+}
+
+class _TarjetaCarpeta3DState extends State<TarjetaCarpeta3D> with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late AnimationController _floatController;
+
+  @override
+  void initState() {
+    super.initState();
+    _floatController = AnimationController(vsync: this, duration: const Duration(milliseconds: 750));
+  }
+
+  @override
+  void dispose() {
+    _floatController.dispose();
+    super.dispose();
+  }
+
+  void _startHover() {
+    if (widget.isLocked) return;
+    setState(() => _isHovered = true);
+    _floatController.repeat(reverse: true);
+  }
+
+  void _stopHover() {
+    setState(() { _isHovered = false; _isPressed = false; });
+    _floatController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bgColor = widget.isLocked ? Colors.grey.shade300 : widget.carpeta.colorFondo;
+    final Color iconColor = widget.isLocked ? Colors.grey.shade400 : Colors.black.withOpacity(0.85);
+
+    return MouseRegion(
+      onEnter: (_) => _startHover(),
+      onExit: (_) => _stopHover(),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) { setState(() => _isPressed = false); widget.onTap(); },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedBuilder(
+          animation: _floatController,
+          builder: (context, child) {
+            double floatY = (_isHovered && !_isPressed) ? math.sin(_floatController.value * math.pi) * -6 : 0;
+            return Transform.translate(
+              offset: Offset(0, floatY),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutBack,
+                transform: Matrix4.diagonal3Values(_isPressed ? 0.95 : 1.0, _isPressed ? 0.95 : 1.0, 1.0),
+                child: child,
+              ),
+            );
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(30), 
+              border: Border.all(color: Colors.white, width: _isHovered ? 4 : 2),
+              boxShadow: [
+                BoxShadow(
+                  color: bgColor.withOpacity(0.6), 
+                  blurRadius: _isPressed ? 5 : (_isHovered ? 20 : 10),
+                  offset: Offset(0, _isPressed ? 3 : (_isHovered ? 10 : 6)),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.carpeta.rutaImagen != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: AnimatedScale(
+                      scale: _isPressed ? 0.95 : 1.0,
+                      duration: const Duration(milliseconds: 100),
+                      child: Image.asset(
+                        widget.carpeta.rutaImagen!,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
+                else ...[
+                  Positioned(
+                    top: -15, right: -15,
+                    child: Icon(Icons.folder_open, size: 100, color: Colors.white.withOpacity(0.2)),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(widget.carpeta.icono, size: 60, color: iconColor),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.carpeta.nombre,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: iconColor),
+                      ),
+                    ],
+                  ),
+                ],
+                if (widget.isLocked)
+                  Positioned(
+                    top: 15, right: 15,
+                    child: Icon(Icons.lock_rounded, color: Colors.blueGrey.shade400, size: 30),
+                  )
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-// --- TARJETA SQUISH 3D (Ahora maneja candados) ---
 class TarjetaSquish3D extends StatefulWidget {
   final Pictograma pic;
   final VoidCallback onTap;
@@ -537,25 +770,18 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
   }
 
   void _startHover() {
-    if (widget.isLocked) return; // Si está bloqueada, no hace la animación bonita
+    if (widget.isLocked) return;
     setState(() => _isHovered = true);
     _floatController.repeat(reverse: true);
   }
 
   void _stopHover() {
-    setState(() { 
-      _isHovered = false; 
-      _isPressed = false; 
-    });
+    setState(() { _isHovered = false; _isPressed = false; });
     _floatController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
-  void _onInteractionStart() => setState(() => _isPressed = true);
-  void _onInteractionEnd() => setState(() => _isPressed = false);
-
   @override
   Widget build(BuildContext context) {
-    // Si está bloqueada, forzamos colores grises opacos
     final Color bgColor = widget.isLocked ? Colors.grey.shade200 : widget.pic.colorFondo;
     final Color iconColor = widget.isLocked ? Colors.grey.shade400 : Colors.black.withOpacity(0.75);
     final Color textColor = widget.isLocked ? Colors.grey.shade500 : Colors.black.withOpacity(0.85);
@@ -564,26 +790,19 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
       onEnter: (_) => _startHover(),
       onExit: (_) => _stopHover(),
       child: GestureDetector(
-        onTapDown: (_) => _onInteractionStart(),
-        onTapUp: (_) {
-          _onInteractionEnd();
-          widget.onTap(); 
-        },
-        onTapCancel: () => _onInteractionEnd(),
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) { setState(() => _isPressed = false); widget.onTap(); },
+        onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedBuilder(
           animation: _floatController,
           builder: (context, child) {
             double floatY = (_isHovered && !_isPressed) ? math.sin(_floatController.value * math.pi) * -6 : 0;
-            double scaleX = _isPressed ? 1.05 : (_isHovered ? 1.05 : 1.0);
-            double scaleY = _isPressed ? 0.90 : (_isHovered ? 1.05 : 1.0);
-
             return Transform.translate(
               offset: Offset(0, floatY),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOutBack,
-                transformAlignment: Alignment.center,
-                transform: Matrix4.diagonal3Values(scaleX, scaleY, 1.0),
+                transform: Matrix4.diagonal3Values(_isPressed ? 1.05 : (_isHovered ? 1.05 : 1.0), _isPressed ? 0.90 : (_isHovered ? 1.05 : 1.0), 1.0),
                 child: child,
               ),
             );
@@ -609,27 +828,41 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D> with SingleTickerProv
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AnimatedScale(
-                      scale: _isPressed ? 0.9 : 1.0,
+                if (widget.pic.rutaImagen != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(33), 
+                    child: AnimatedScale(
+                      scale: _isPressed ? 0.95 : 1.0,
                       duration: const Duration(milliseconds: 100),
-                      child: Icon(widget.pic.icono, size: 65, color: iconColor),
+                      child: Image.asset(
+                        widget.pic.rutaImagen!,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover, 
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      widget.pic.palabra,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
-                    ),
-                  ],
-                ),
-                // Icono de candado superpuesto
+                  )
+                else
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedScale(
+                        scale: _isPressed ? 0.9 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        child: Icon(widget.pic.icono, size: 65, color: iconColor),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.pic.palabra,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
+                      ),
+                    ],
+                  ),
+                  
                 if (widget.isLocked)
                   Positioned(
-                    top: 15,
-                    right: 15,
+                    top: 15, right: 15,
                     child: Icon(Icons.lock_rounded, color: Colors.blueGrey.shade300, size: 28),
                   )
               ],
