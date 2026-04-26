@@ -316,6 +316,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Detectamos si es celular (menos de 800px de ancho)
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeGlobal,
       builder: (context, isDark, _) {
@@ -326,10 +329,11 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
               child: Column(
                 children: [
                   _construirCabecera(isDark),
-                  _construirBarraOracionGlass(isDark),
+                  // Le pasamos el isMobile a la barra y a la grilla
+                  _construirBarraOracionGlass(isDark, isMobile),
                   const SizedBox(height: 8),
                   _construirBarraNavegacionInterna(isDark),
-                  _construirGrillaPrincipal(isDark),
+                  _construirGrillaPrincipal(isDark, isMobile),
                 ],
               ),
             ),
@@ -438,16 +442,17 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // BARRA DE ORACIÓN GLASS
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirBarraOracionGlass(bool isDark) {
+  Widget _construirBarraOracionGlass(bool isDark, bool isMobile) {
     return Container(
-      height: 165,
+      // Altura dinámica: 115px en celular, 165px en PC
+      height: isMobile ? 115 : 165,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isMobile ? 10 : 14),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withOpacity(0.05)
             : Colors.white.withOpacity(0.65),
-        borderRadius: BorderRadius.circular(36),
+        borderRadius: BorderRadius.circular(isMobile ? 28 : 36),
         border: Border.all(
           color: isDark
               ? Colors.white.withOpacity(0.12)
@@ -470,8 +475,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
               switchInCurve: Curves.easeOutBack,
               child: _oracionActual.isEmpty
                   ? _EmptyPhraseHint(isDark: isDark, key: const ValueKey('empty'))
-                  // MEJORA: ClipRRect para que las tarjetas no desborden
-                  // los bordes redondeados del contenedor glass.
                   : ClipRRect(
                       key: const ValueKey('lista'),
                       borderRadius: BorderRadius.circular(24),
@@ -480,8 +483,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                         itemCount: _oracionActual.length,
                         itemBuilder: (context, index) {
                           return TweenAnimationBuilder<double>(
-                            key: ValueKey(
-                                '${_oracionActual[index].palabra}_$index'),
+                            key: ValueKey('${_oracionActual[index].palabra}_$index'),
                             duration: const Duration(milliseconds: 500),
                             curve: Curves.elasticOut,
                             tween: Tween(begin: 0.0, end: 1.0),
@@ -495,9 +497,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                                     child: child),
                               ),
                             ),
-                            child: _MiniTarjeta(
-                                pic: _oracionActual[index],
-                                isDark: isDark),
+                            // Pasamos el isMobile a la mini tarjeta
+                            child: _MiniTarjeta(pic: _oracionActual[index], isDark: isDark, isMobile: isMobile),
                           );
                         },
                       ),
@@ -509,14 +510,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             margin: const EdgeInsets.symmetric(horizontal: 10),
             color: isDark ? Colors.white24 : Colors.white,
           ),
-          _construirControlesBarra(isDark),
+          // Pasamos isMobile a los controles
+          _construirControlesBarra(isDark, isMobile),
         ],
       ),
     );
   }
 
-  Widget _construirControlesBarra(bool isDark) {
-    // MEJORA: `canSpeak` ahora también considera si ya está hablando.
+  Widget _construirControlesBarra(bool isDark, bool isMobile) {
     final bool canSpeak = _oracionActual.isNotEmpty && !_isSpeaking;
 
     return Column(
@@ -529,23 +530,27 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
               color: Colors.redAccent,
               onTap: _borrarUltimo,
               isDark: isDark,
+              isMobile: isMobile, // <--- Añadido
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: isMobile ? 4 : 8),
             _BotonControlUltra(
               icono: Icons.delete_sweep,
               color: isDark ? Colors.grey.shade300 : Colors.blueGrey,
               onTap: _borrarTodo,
               isDark: isDark,
+              isMobile: isMobile, // <--- Añadido
             ),
           ],
         ),
-        // MEJORA: Botón HABLAR con feedback de estado _isSpeaking.
         GestureDetector(
           onTap: _isSpeaking ? null : _reproducirOracion,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 280),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            // Padding dinámico para que el botón HABLAR no sea gigante
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 22, 
+              vertical: isMobile ? 10 : 16
+            ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: _isSpeaking
@@ -554,12 +559,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                         ? [Colors.blue.shade400, Colors.blue.shade700]
                         : (isDark
                             ? [Colors.white10, Colors.white12]
-                            : [
-                                Colors.grey.shade300,
-                                Colors.grey.shade400
-                              ]),
+                            : [Colors.grey.shade300, Colors.grey.shade400]),
               ),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(isMobile ? 20 : 28),
               border: Border.all(
                 color: Colors.white.withOpacity(0.4),
                 width: 1.5,
@@ -568,15 +570,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // MEJORA: AnimatedSwitcher entre icono play y spinner.
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: _isSpeaking
-                      ? const SizedBox(
-                          key: ValueKey('speaking'),
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(
+                      ? SizedBox(
+                          key: const ValueKey('speaking'),
+                          width: isMobile ? 20 : 28,
+                          height: isMobile ? 20 : 28,
+                          child: const CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2.5,
                           ),
@@ -586,17 +587,15 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                           key: const ValueKey('play'),
                           color: canSpeak
                               ? Colors.white
-                              : (isDark
-                                  ? Colors.white30
-                                  : Colors.grey.shade600),
-                          size: 30,
+                              : (isDark ? Colors.white30 : Colors.grey.shade600),
+                          size: isMobile ? 24 : 30,
                         ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: isMobile ? 4 : 6),
                 Text(
                   _isSpeaking ? 'HABLANDO' : 'HABLAR',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: isMobile ? 13 : 16,
                     fontWeight: FontWeight.w900,
                     color: (canSpeak || _isSpeaking)
                         ? Colors.white
@@ -675,7 +674,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // GRILLA PRINCIPAL
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirGrillaPrincipal(bool isDark) {
+  Widget _construirGrillaPrincipal(bool isDark, bool isMobile) {
     final int itemCount = _carpetaActual == null
         ? _palabrasFrecuentes.length + _carpetas.length
         : _carpetaActual!.pictogramas.length;
@@ -684,17 +683,19 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       child: GridView.builder(
         physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics()),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 165,
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12 : 16, 
+            vertical: 10
+        ),
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          // ¡Aquí está la magia! 110px en móvil (3 col), 165px en PC (muchas col)
+          maxCrossAxisExtent: isMobile ? 110 : 165,
           childAspectRatio: 1.0,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 18,
+          crossAxisSpacing: isMobile ? 10 : 16,
+          mainAxisSpacing: isMobile ? 12 : 18,
         ),
         itemCount: itemCount,
         itemBuilder: (context, index) {
-          // Staggered animation: cada tarjeta entra con un ligero retraso.
           final double start = (index / itemCount).clamp(0.0, 0.7);
           final double end = (start + 0.3).clamp(0.0, 1.0);
           return AnimatedBuilder(
@@ -883,18 +884,21 @@ class _EmptyPhraseHint extends StatelessWidget {
 class _MiniTarjeta extends StatelessWidget {
   final Pictograma pic;
   final bool isDark;
-  const _MiniTarjeta({required this.pic, required this.isDark});
+  final bool isMobile; // <--- Añadido
+
+  const _MiniTarjeta({required this.pic, required this.isDark, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 100,
-      height: 100,
+      // Tamaños reducidos para celular
+      width: isMobile ? 65 : 100,
+      height: isMobile ? 65 : 100,
       margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
       decoration: BoxDecoration(
         color: pic.colorFondo,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white, width: 2.5),
+        borderRadius: BorderRadius.circular(isMobile ? 14 : 20),
+        border: Border.all(color: Colors.white, width: isMobile ? 1.5 : 2.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.07),
@@ -905,13 +909,12 @@ class _MiniTarjeta extends StatelessWidget {
       ),
       child: pic.rutaImagen != null
           ? ClipRRect(
-              borderRadius: BorderRadius.circular(17),
+              borderRadius: BorderRadius.circular(isMobile ? 12 : 17),
               child: Image.asset(
                 pic.rutaImagen!,
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
-                // MEJORA: Fallback elegante en lugar de pantalla roja.
                 errorBuilder: (_, __, ___) => _PictoFallback(pic: pic),
               ),
             )
@@ -1360,12 +1363,14 @@ class _BotonControlUltra extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
   final bool isDark;
+  final bool isMobile; // <--- Añadido
 
   const _BotonControlUltra({
     required this.icono,
     required this.color,
     required this.onTap,
     required this.isDark,
+    required this.isMobile, // <--- Añadido
   });
 
   @override
@@ -1388,13 +1393,14 @@ class _BotonControlUltraState extends State<_BotonControlUltra> {
         scale: _isPressed ? 0.82 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          width: 52,
-          height: 52,
+          // Tamaño dinámico
+          width: widget.isMobile ? 40 : 52,
+          height: widget.isMobile ? 40 : 52,
           decoration: BoxDecoration(
             color: widget.isDark ? Colors.white10 : Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
-                color: widget.color.withOpacity(0.45), width: 2),
+                color: widget.color.withOpacity(0.45), width: widget.isMobile ? 1.5 : 2),
             boxShadow: [
               BoxShadow(
                 color: widget.color.withOpacity(0.15),
@@ -1403,7 +1409,8 @@ class _BotonControlUltraState extends State<_BotonControlUltra> {
               )
             ],
           ),
-          child: Icon(widget.icono, color: widget.color, size: 26),
+          // Ícono dinámico
+          child: Icon(widget.icono, color: widget.color, size: widget.isMobile ? 20 : 26),
         ),
       ),
     );
