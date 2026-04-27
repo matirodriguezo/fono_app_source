@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 
 /// Botón de toggle de tema reutilizable.
-///
-/// MEJORA ARQUITECTURAL: Este botón también se repetía literalmente en
-/// cinco pantallas. Al extraerlo aquí, cualquier cambio de diseño
-/// (ej. tamaño, etiqueta, color) se aplica globalmente de inmediato.
-///
-/// MEJORA UX: Añadimos un Tooltip accesible para lectores de pantalla,
-/// y el cursor «click» se conserva de la implementación original.
 class ThemeToggleButton extends StatelessWidget {
   final bool showLabel;
 
@@ -16,6 +9,9 @@ class ThemeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Detectamos si es celular para achicar este botón en específico
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeGlobal,
       builder: (context, isDark, _) {
@@ -27,14 +23,19 @@ class ThemeToggleButton extends StatelessWidget {
               onTap: () => isDarkModeGlobal.value = !isDark,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                margin:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                // Márgenes más pequeños en celular
+                margin: EdgeInsets.symmetric(
+                    vertical: isMobile ? 6 : 10, 
+                    horizontal: isMobile ? 4 : 8),
+                // Relleno más pequeño en celular
+                padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 8 : 14, 
+                    vertical: isMobile ? 4 : 6),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withOpacity(0.1)
                       : Colors.blueGrey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(isMobile ? 20 : 30),
                   border: Border.all(
                     color: isDark
                         ? Colors.white.withOpacity(0.2)
@@ -49,10 +50,11 @@ class ThemeToggleButton extends StatelessWidget {
                       child: Text(
                         isDark ? '🌙' : '☀️',
                         key: ValueKey(isDark),
-                        style: const TextStyle(fontSize: 16),
+                        // Ícono más pequeño en celular
+                        style: TextStyle(fontSize: isMobile ? 14 : 16),
                       ),
                     ),
-                    if (showLabel) ...[
+                    if (showLabel && !isMobile) ...[
                       const SizedBox(width: 6),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),

@@ -30,6 +30,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   bool _isSpeaking = false; 
 
   late AnimationController _gridIntroController;
+  
+  // MEJORA 2: Controlador de Scroll para mover las tarjetas automáticamente
+  final ScrollController _scrollController = ScrollController();
 
   bool _isPro = false;
   String _nombreUsuario = 'Amigo';
@@ -71,6 +74,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void dispose() {
     _perfilSubscription?.cancel();
     _gridIntroController.dispose();
+    _scrollController.dispose(); // Liberar memoria del scroll
     super.dispose();
   }
 
@@ -92,15 +96,40 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     _gridIntroController.forward();
   }
 
+  // MEJORA 2 Y 3 APLICADAS AQUÍ:
   void _agregarPictograma(Pictograma pic) {
     HapticFeedback.lightImpact();
     setState(() => _oracionActual.add(pic));
+    
+    // Reproduce inmediatamente la tarjeta que se acaba de tocar
+    _motorVoz.hablar(pic.palabra);
+
+    // Auto-scroll hacia el final para que el paciente vea lo que agregó
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _borrarUltimo() {
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.mediumImpact();
       setState(() => _oracionActual.removeLast());
+      // Ajustar scroll si es necesario al borrar
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     }
   }
 
@@ -400,7 +429,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   Widget _construirBarraOracionGlass(bool isDark, bool isMobile) {
     return Container(
-      // Altura súper reducida para celular
       height: isMobile ? 100 : 165,
       margin: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
       padding: EdgeInsets.all(isMobile ? 8 : 14),
@@ -435,6 +463,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                       key: const ValueKey('lista'),
                       borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
                       child: ListView.builder(
+                        // SE PASA EL CONTROLADOR DE SCROLL A LA LISTA
+                        controller: _scrollController,
                         scrollDirection: Axis.horizontal,
                         itemCount: _oracionActual.length,
                         itemBuilder: (context, index) {
@@ -500,7 +530,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           onTap: _isSpeaking ? null : _reproducirOracion,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 280),
-            // Padding extra delgado en celular para no robar espacio
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? 12 : 22, 
               vertical: isMobile ? 8 : 16
@@ -647,7 +676,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             vertical: 10
         ),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          // Grilla ajustada: más respiro en celular (100px aprox)
           maxCrossAxisExtent: isMobile ? 100 : 165,
           childAspectRatio: 1.0,
           crossAxisSpacing: isMobile ? 10 : 16,
