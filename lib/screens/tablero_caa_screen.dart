@@ -30,8 +30,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   bool _isSpeaking = false; 
 
   late AnimationController _gridIntroController;
-  
-  // MEJORA 2: Controlador de Scroll para mover las tarjetas automáticamente
   final ScrollController _scrollController = ScrollController();
 
   bool _isPro = false;
@@ -74,7 +72,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void dispose() {
     _perfilSubscription?.cancel();
     _gridIntroController.dispose();
-    _scrollController.dispose(); // Liberar memoria del scroll
+    _scrollController.dispose(); 
     super.dispose();
   }
 
@@ -96,15 +94,20 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     _gridIntroController.forward();
   }
 
-  // MEJORA 2 Y 3 APLICADAS AQUÍ:
+  // --- LAS 3 FUNCIONES BLINDADAS ---
+
   void _agregarPictograma(Pictograma pic) {
     HapticFeedback.lightImpact();
-    setState(() => _oracionActual.add(pic));
-    
-    // Reproduce inmediatamente la tarjeta que se acaba de tocar
-    _motorVoz.hablar(pic.palabra);
 
-    // Auto-scroll hacia el final para que el paciente vea lo que agregó
+    // INTERRUPTOR DE EMERGENCIA: Si tocamos una tarjeta mientras leía la oración, se calla y resetea.
+    if (_isSpeaking) {
+      _motorVoz.detener();
+      setState(() => _isSpeaking = false);
+    }
+
+    setState(() => _oracionActual.add(pic));
+    _motorVoz.encolarPalabra(pic.palabra);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -119,8 +122,15 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _borrarUltimo() {
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.mediumImpact();
+      
+      // INTERRUPTOR DE EMERGENCIA: Corta todo el audio y resetea estados visuales.
+      _motorVoz.detener();
+      if (_isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
+
       setState(() => _oracionActual.removeLast());
-      // Ajustar scroll si es necesario al borrar
+      
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -136,7 +146,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _borrarTodo() {
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.heavyImpact();
-      setState(() => _oracionActual.clear());
+      
+      // INTERRUPTOR DE EMERGENCIA MAXIMO: Limpia todo a la fuerza.
+      _motorVoz.detener();
+      
+      setState(() {
+        _oracionActual.clear();
+        _isSpeaking = false;
+      });
     }
   }
 
@@ -148,11 +165,20 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       return;
     }
     HapticFeedback.heavyImpact();
+    
+    // Encendemos el botón visual
     setState(() => _isSpeaking = true);
+    
     final frase = _oracionActual.map((p) => p.palabra).join(' ');
+    
+    // Gracias al timeout que pusimos en TtsService, este await jamás se quedará pegado
     await _motorVoz.hablar(frase);
+    
+    // Apagamos el botón visual si la pantalla sigue existiendo
     if (mounted) setState(() => _isSpeaking = false);
   }
+
+  // -----------------------------------
 
   void _mostrarErrorUltra() {
     ScaffoldMessenger.of(context)
@@ -349,7 +375,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           ),
           child: Row(
             children: [
-              // ─── SALUDO ─────────────────────────────────────────
               Expanded(
                 child: Row(
                   children: [
@@ -370,7 +395,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                 ),
               ),
 
-              // ─── BOTONES ACCIÓN ──────────────────────────────────
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -463,7 +487,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                       key: const ValueKey('lista'),
                       borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
                       child: ListView.builder(
-                        // SE PASA EL CONTROLADOR DE SCROLL A LA LISTA
                         controller: _scrollController,
                         scrollDirection: Axis.horizontal,
                         itemCount: _oracionActual.length,
