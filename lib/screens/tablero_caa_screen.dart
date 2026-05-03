@@ -853,7 +853,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             vertical: isMobileLandscape ? 6 : 10
         ),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: isMobileLandscape ? 85 : (isMobile ? 100 : 165),
+          maxCrossAxisExtent: isMobileLandscape ? 20 : (isMobile ? 100 : 165),
           childAspectRatio: 1.0,
           crossAxisSpacing: isMobileLandscape ? 8 : (isMobile ? 10 : 16),
           mainAxisSpacing: isMobileLandscape ? 8 : (isMobile ? 12 : 18),
@@ -1090,13 +1090,13 @@ class _MiniTarjeta extends StatelessWidget {
         borderRadius: BorderRadius.circular(isMobileLandscape ? 10 : (isMobile ? 12 : 20)),
         // Destello visual al ser hablado
         border: Border.all(
-          color: isHighlighted ? Colors.yellowAccent.shade400 : Colors.white, 
+          color: isHighlighted ? const Color.fromARGB(255, 48, 45, 253) : Colors.white, 
           width: isHighlighted ? 3.5 : (isMobile ? 1.5 : 2.5)
         ),
         boxShadow: [
           if (isHighlighted)
             BoxShadow(
-              color: Colors.yellowAccent.shade400.withOpacity(0.8),
+              color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.8),
               blurRadius: 15,
               spreadRadius: 2,
             )

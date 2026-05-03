@@ -57,18 +57,20 @@ class RepositorioVocabulario {
   // --- NUEVO: VOCABULARIO NÚCLEO (Pantalla Principal) ---
   static List<Pictograma> obtenerPalabrasFrecuentes() {
     return [
-      Pictograma(palabra: 'Yo', rutaImagen: "assets/images/YO.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Tú', rutaImagen: "assets/images/TU.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Él', rutaImagen: "assets/images/EL.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Ella', rutaImagen: "assets/images/ELLA.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Ellas', rutaImagen: "assets/images/ELLAS.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Ellos', rutaImagen: "assets/images/ELLOS.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Nosotros', rutaImagen: "assets/images/NOSOTROS.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Ustedes', rutaImagen: "assets/images/USTEDES.png", categoria: CategoriaCAA.pronombre),
-      Pictograma(palabra: 'Sí', icono: Icons.check_circle, categoria: CategoriaCAA.social),
-      Pictograma(palabra: 'No', icono: Icons.cancel, categoria: CategoriaCAA.social),
-      Pictograma(palabra: 'Bien', icono: Icons.thumb_up, categoria: CategoriaCAA.descriptivo),
-      Pictograma(palabra: 'Mal', icono: Icons.thumb_down, categoria: CategoriaCAA.descriptivo),
+      Pictograma(palabra: 'Yo', rutaImagen: "assets/images/INICIO/YO.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Tú', rutaImagen: "assets/images/INICIO/TU.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Él', rutaImagen: "assets/images/INICIO/EL.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Ella', rutaImagen: "assets/images/INICIO/ELLA.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Ellas', rutaImagen: "assets/images/INICIO/ELLAS.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Ellos', rutaImagen: "assets/images/INICIO/ELLOS.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Nosotros', rutaImagen: "assets/images/INICIO/NOSOTROS.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Ustedes', rutaImagen: "assets/images/INICIO/USTEDES.png", categoria: CategoriaCAA.pronombre),
+      Pictograma(palabra: 'Sí', rutaImagen: "assets/images/INICIO/SI.png", categoria: CategoriaCAA.social),
+      Pictograma(palabra: 'No', rutaImagen: "assets/images/INICIO/NO.png", categoria: CategoriaCAA.social),
+      Pictograma(palabra: 'Bien', rutaImagen: "assets/images/INICIO/BIEN.png", categoria: CategoriaCAA.descriptivo),
+      Pictograma(palabra: 'Mal', rutaImagen: "assets/images/INICIO/MAL.png", categoria: CategoriaCAA.descriptivo),
+      Pictograma(palabra: 'YO QUIERO', rutaImagen: "assets/images/INICIO/YO_QUIERO.png", categoria: CategoriaCAA.descriptivo),
+      Pictograma(palabra: 'YO NO QUIERO', rutaImagen: "assets/images/INICIO/YO_NO_QUIERO.png", categoria: CategoriaCAA.descriptivo),
     ];
   }
 
@@ -78,66 +80,82 @@ class RepositorioVocabulario {
       // CARPETA 1: SOCIAL Y SALUDOS
       CarpetaCAA(
         nombre: 'Saludos',
-        icono: Icons.waving_hand_rounded,
+        rutaImagen: "assets/images/SALUDOS/saludos.png",
         colorFondo: const Color.fromARGB(255, 79, 66, 255),
         esProOnly: false,
         pictogramas: [
-          Pictograma(palabra: 'Hola', icono: Icons.waving_hand, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Buenos Días', icono: Icons.directions_run, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Buenas Tardes', icono: Icons.badge, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Buenas Noches', icono: Icons.forum, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: '¿Cómo estás?', icono: Icons.volunteer_activism, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Adiós', icono: Icons.handshake, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Nos Vemos', icono: Icons.handshake, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Hasta Pronto', icono: Icons.check_circle, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Hasta Mañana', icono: Icons.cancel, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Que Estes Bien', icono: Icons.volunteer_activism, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Gusto en Verte', icono: Icons.volunteer_activism, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Abrazo', icono: Icons.badge, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Beso', icono: Icons.badge, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Mucho Gusto', icono: Icons.cake, categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Saludos', icono: Icons.cake, categoria: CategoriaCAA.saludos),
-        ],
+          Pictograma(palabra: 'Hola', rutaImagen: "assets/images/SALUDOS/HOLA.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Buenos Días', rutaImagen: "assets/images/SALUDOS/BUENOS_DIAS.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Buenas Tardes', rutaImagen: "assets/images/SALUDOS/BUENAS_TARDES.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Buenas Noches', rutaImagen: "assets/images/SALUDOS/BUENAS_NOCHES.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: '¿Cómo estás?', rutaImagen: "assets/images/SALUDOS/COMO_ESTAS.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Adiós', rutaImagen: "assets/images/SALUDOS/ADIOS.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Nos Vemos', rutaImagen: "assets/images/SALUDOS/NOS_VEMOS.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Hasta Pronto', rutaImagen: "assets/images/SALUDOS/HASTA_PRONTO.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Hasta Mañana', rutaImagen: "assets/images/SALUDOS/HASTA_MAÑANA.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Que Estes Bien', rutaImagen: "assets/images/SALUDOS/QUE_ESTES_BIEN.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Gusto en Verte', rutaImagen: "assets/images/SALUDOS/GUSTO_EN_VERTE.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Abrazo', rutaImagen: "assets/images/SALUDOS/ABRAZO.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Beso', rutaImagen: "assets/images/SALUDOS/BESO.png", categoria: CategoriaCAA.saludos),
+          Pictograma(palabra: 'Mucho Gusto', rutaImagen: "assets/images/SALUDOS/MUCHO_GUSTO.png", categoria: CategoriaCAA.saludos),        ],
       ),
 
       CarpetaCAA(
         nombre: 'Personas',
-        icono: Icons.waving_hand_rounded,
+        rutaImagen: "assets/images/PERSONAS/personas.png",
         colorFondo: const Color.fromARGB(255, 209, 248, 57),
         esProOnly: false,
         pictogramas: [
-          Pictograma(palabra: 'MAMÁ', rutaImagen: "assets/images/MAMA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'PAPÁ', rutaImagen: "assets/images/PAPA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'ABUELA', rutaImagen: "assets/images/ABUELA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'ABUELO', rutaImagen: "assets/images/ABUELO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'HERMANA', rutaImagen: "assets/images/HERMANA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'HERMANO', rutaImagen: "assets/images/HERMANO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'TÍO', rutaImagen: "assets/images/TIO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'TÍA', rutaImagen: "assets/images/TIA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'PRIMO', rutaImagen: "assets/images/PRIMO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'PRIMA', rutaImagen: "assets/images/PRIMA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'AMIGO', rutaImagen: "assets/images/AMIGO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'AMIGA', rutaImagen: "assets/images/AMIGA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'AMIGOS', rutaImagen: "assets/images/AMIGOS.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'MAESTRA', rutaImagen: "assets/images/MAESTRA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'MAESTRO', rutaImagen: "assets/images/MAESTRO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'DOCTOR', rutaImagen: "assets/images/DOCTOR.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'ENFERMERA', rutaImagen: "assets/images/ENFERMERA.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Tú', rutaImagen: "assets/images/personas/TU.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/personas/YO.png", categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Yo', rutaImagen: "assets/images/YO.png", categoria: CategoriaCAA.persona),
-
+          Pictograma(palabra: 'MAMÁ', rutaImagen: "assets/images/PERSONAS/MAMA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'PAPÁ', rutaImagen: "assets/images/PERSONAS/PAPA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'ABUELA', rutaImagen: "assets/images/PERSONAS/ABUELA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'ABUELO', rutaImagen: "assets/images/PERSONAS/ABUELO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'HERMANA', rutaImagen: "assets/images/PERSONAS/HERMANA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'HERMANO', rutaImagen: "assets/images/PERSONAS/HERMANO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'TÍO', rutaImagen: "assets/images/PERSONAS/TIO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'TÍA', rutaImagen: "assets/images/PERSONAS/TIA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'PRIMO', rutaImagen: "assets/images/PERSONAS/PRIMO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'PRIMA', rutaImagen: "assets/images/PERSONAS/PRIMA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'AMIGO', rutaImagen: "assets/images/PERSONAS/AMIGO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'AMIGA', rutaImagen: "assets/images/PERSONAS/AMIGA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'AMIGOS', rutaImagen: "assets/images/PERSONAS/AMIGOS.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'MAESTRA', rutaImagen: "assets/images/PERSONAS/MAESTRA.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'MAESTRO', rutaImagen: "assets/images/PERSONAS/MAESTRO.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'DOCTOR', rutaImagen: "assets/images/PERSONAS/DOCTOR.png", categoria: CategoriaCAA.persona),
+          Pictograma(palabra: 'ENFERMERA', rutaImagen: "assets/images/PERSONAS/ENFERMERA.png", categoria: CategoriaCAA.persona),
         ],
       ),
 
-      // CARPETA 2: NECESIDADES BÁSICAS
+       CarpetaCAA(
+        nombre: 'Acciones',
+        rutaImagen: "assets/images/ACCIONES/acciones.png",
+        colorFondo: const Color.fromARGB(255, 248, 25, 218),
+        esProOnly: true,
+        pictogramas: [
+          Pictograma(palabra: 'Ir', rutaImagen: "assets/images/ACCIONES/IR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'ABRAZAR', rutaImagen: "assets/images/ACCIONES/ABRAZAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'BAILAR', rutaImagen: "assets/images/ACCIONES/BAILAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'BEBER', rutaImagen: "assets/images/ACCIONES/BEBER.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'BUSCAR', rutaImagen: "assets/images/ACCIONES/BUSCAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'COMER', rutaImagen: "assets/images/ACCIONES/COMER.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'DAR', rutaImagen: "assets/images/ACCIONES/DAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'DESCANSAR', rutaImagen: "assets/images/ACCIONES/DESCANSAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'DIBUJAR', rutaImagen: "assets/images/ACCIONES/DIBUJAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'DORMIR', rutaImagen: "assets/images/ACCIONES/DORMIR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'ESCUCHAR', rutaImagen: "assets/images/ACCIONES/ESCUCHAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'ESPERAR', rutaImagen: "assets/images/ACCIONES/ESPERAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'ESTAR', rutaImagen: "assets/images/ACCIONES/ESTAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'GUARDAR', rutaImagen: "assets/images/ACCIONES/GUARDAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'JUGAR', rutaImagen: "assets/images/ACCIONES/JUGAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'MAS', rutaImagen: "assets/images/ACCIONES/MAS.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'PARAR', rutaImagen: "assets/images/ACCIONES/PARAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'QUERER', rutaImagen: "assets/images/ACCIONES/QUERER.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'SER', rutaImagen: "assets/images/ACCIONES/SER.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'TRABAJAR', rutaImagen: "assets/images/ACCIONES/TRABAJAR.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'VER', rutaImagen: "assets/images/ACCIONES/VER.png", categoria: CategoriaCAA.accion),
+          Pictograma(palabra: 'VESTIR', rutaImagen: "assets/images/ACCIONES/VESTIR.png", categoria: CategoriaCAA.accion),        ],
+      ),
+
       CarpetaCAA(
         nombre: 'Necesidades',
         icono: Icons.notification_important_rounded,
@@ -157,7 +175,6 @@ class RepositorioVocabulario {
         ],
       ),
 
-      // CARPETA 3: SALUD Y EMOCIONES
       CarpetaCAA(
         nombre: 'Salud y Emoción',
         icono: Icons.favorite_rounded,
@@ -177,7 +194,6 @@ class RepositorioVocabulario {
         ],
       ),
 
-      // CARPETA 4: PREGUNTAS
       CarpetaCAA(
         nombre: 'Preguntas',
         icono: Icons.question_mark_rounded,
@@ -196,9 +212,8 @@ class RepositorioVocabulario {
         ],
       ),
 
-      // CARPETA 5: COMIDA (PRO)
       CarpetaCAA(
-        nombre: 'Comida',
+        nombre: 'Alimentos',
         icono: Icons.fastfood_rounded,
         colorFondo: const Color(0xFFFDBA74),
         esProOnly: true,
@@ -217,7 +232,6 @@ class RepositorioVocabulario {
         ],
       ),
 
-      // CARPETA 6: LUGARES Y OCIO (PRO)
       CarpetaCAA(
         nombre: 'Lugares y Ocio',
         icono: Icons.park_rounded,
@@ -235,27 +249,7 @@ class RepositorioVocabulario {
           Pictograma(palabra: 'Dibujar', icono: Icons.brush, categoria: CategoriaCAA.accion),
           Pictograma(palabra: 'Con mis amigos', icono: Icons.groups, categoria: CategoriaCAA.persona),
         ],
-      ),
-
-      // CARPETA 7: ACCIONES LIBRES (PRO)
-      CarpetaCAA(
-        nombre: 'Acciones',
-        rutaImagen: "assets/images/acciones.png",
-        colorFondo: const Color(0xFF86EFAC),
-        esProOnly: true,
-        pictogramas: [
-          Pictograma(palabra: 'Yo', icono: Icons.person, categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Tú', icono: Icons.person_outline, categoria: CategoriaCAA.persona),
-          Pictograma(palabra: 'Hacer', icono: Icons.build, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Tener', icono: Icons.inventory_2, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Poner', icono: Icons.move_down, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Dar', icono: Icons.volunteer_activism, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Tomar', icono: Icons.back_hand, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Buscar', icono: Icons.search, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Esperar', icono: Icons.hourglass_empty, categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'Parar', icono: Icons.front_hand, categoria: CategoriaCAA.accion),
-        ],
-      ),
+      ),     
     ];
   }
 }

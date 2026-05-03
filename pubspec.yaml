@@ -24,6 +24,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Agrega estas líneas respetando exactamente los espacios
   assets:
     - assets/images/
+    - assets/images/INICIO/
+    - assets/images/ACCIONES/
+    - assets/images/PERSONAS/
+    - assets/images/SALUDOS/
