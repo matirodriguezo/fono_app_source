@@ -28,6 +28,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   final TtsService _motorVoz = TtsService();
   bool _isSpeaking = false; 
+  int? _indiceDestacado; // NUEVO: Controla qué tarjeta brilla
 
   late AnimationController _gridIntroController;
   final ScrollController _scrollController = ScrollController();
@@ -94,15 +95,15 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     _gridIntroController.forward();
   }
 
-  // --- LAS 3 FUNCIONES BLINDADAS ---
-
   void _agregarPictograma(Pictograma pic) {
     HapticFeedback.lightImpact();
 
-    // INTERRUPTOR DE EMERGENCIA: Si tocamos una tarjeta mientras leía la oración, se calla y resetea.
     if (_isSpeaking) {
       _motorVoz.detener();
-      setState(() => _isSpeaking = false);
+      setState(() {
+        _isSpeaking = false;
+        _indiceDestacado = null; // Apaga el brillo
+      });
     }
 
     setState(() => _oracionActual.add(pic));
@@ -123,10 +124,12 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.mediumImpact();
       
-      // INTERRUPTOR DE EMERGENCIA: Corta todo el audio y resetea estados visuales.
       _motorVoz.detener();
       if (_isSpeaking) {
-        setState(() => _isSpeaking = false);
+        setState(() {
+          _isSpeaking = false;
+          _indiceDestacado = null; // Apaga el brillo
+        });
       }
 
       setState(() => _oracionActual.removeLast());
@@ -146,13 +149,12 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _borrarTodo() {
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.heavyImpact();
-      
-      // INTERRUPTOR DE EMERGENCIA MAXIMO: Limpia todo a la fuerza.
       _motorVoz.detener();
       
       setState(() {
         _oracionActual.clear();
         _isSpeaking = false;
+        _indiceDestacado = null; // Apaga el brillo
       });
     }
   }
@@ -166,19 +168,154 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     }
     HapticFeedback.heavyImpact();
     
-    // Encendemos el botón visual
-    setState(() => _isSpeaking = true);
+    setState(() {
+      _isSpeaking = true;
+      _indiceDestacado = null;
+    });
     
-    final frase = _oracionActual.map((p) => p.palabra).join(' ');
+    // Calculamos si es móvil para el auto-scroll
+    final size = MediaQuery.of(context).size;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isMobile = size.shortestSide < 650 || size.height < 600;
+    final isMobileLandscape = isMobile && isLandscape && size.height < 500;
+    final double anchoTarjeta = isMobileLandscape ? 49.0 : (isMobile ? 61.0 : 110.0);
+
+    final palabras = _oracionActual.map((p) => p.palabra).toList();
     
-    // Gracias al timeout que pusimos en TtsService, este await jamás se quedará pegado
-    await _motorVoz.hablar(frase);
+    // Reproduce la oración y recibe avisos en tiempo real
+    await _motorVoz.hablarOracion(palabras, (index) {
+      if (mounted) {
+        setState(() => _indiceDestacado = index);
+        
+        // Auto-Scroll mágico para seguir a la tarjeta que brilla
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            (index * anchoTarjeta).clamp(0.0, _scrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
+      }
+    });
     
-    // Apagamos el botón visual si la pantalla sigue existiendo
-    if (mounted) setState(() => _isSpeaking = false);
+    if (mounted) {
+      setState(() {
+        _isSpeaking = false;
+        _indiceDestacado = null; // Se apaga cuando termina
+      });
+    }
   }
 
-  // -----------------------------------
+  void _mostrarSelectorDeVoz() {
+    HapticFeedback.mediumImpact();
+    final voces = _motorVoz.vocesDisponibles;
+    final isDark = isDarkModeGlobal.value;
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Icon(Icons.record_voice_over, color: Colors.blueAccent.shade400, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Voces del dispositivo',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.45, 
+          child: voces.isEmpty
+              ? Center(
+                  child: Text(
+                    'Buscando voces...\n\n(Si la lista sigue vacía, tu navegador no permite leer las voces instaladas)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, height: 1.5),
+                  ),
+                )
+              : ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: voces.length,
+                  itemBuilder: (context, index) {
+                    final voz = voces[index];
+                    final locale = voz['locale'] ?? '';
+                    final nombreStr = voz['name'] ?? 'Voz ${index + 1}';
+                    
+                    final esActual = _motorVoz.vozActual?['name'] == voz['name'];
+                    
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: esActual 
+                            ? Colors.blueAccent.withOpacity(0.15) 
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: esActual 
+                              ? Colors.blueAccent.withOpacity(0.5) 
+                              : (isDark ? Colors.white10 : Colors.grey.shade200),
+                          width: esActual ? 2 : 1,
+                        )
+                      ),
+                      child: ListTile(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        leading: Icon(
+                          esActual ? Icons.check_circle : Icons.volume_up_outlined,
+                          color: esActual ? Colors.blueAccent : (isDark ? Colors.white30 : Colors.grey),
+                        ),
+                        title: Text(
+                          nombreStr,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.blueGrey.shade800,
+                            fontWeight: esActual ? FontWeight.w900 : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          locale, 
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.blueGrey.shade400,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onTap: () async {
+                          HapticFeedback.lightImpact();
+                          await _motorVoz.cambiarVoz(voz);
+                          await _motorVoz.hablar("Hola");
+                          setState(() {}); 
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cerrar', 
+              style: TextStyle(
+                color: isDark ? Colors.white54 : Colors.blueGrey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _mostrarErrorUltra() {
     ScaffoldMessenger.of(context)
@@ -326,7 +463,10 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final size = MediaQuery.of(context).size;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isMobile = size.shortestSide < 650 || size.height < 600;
+    final isMobileLandscape = isMobile && isLandscape && size.height < 500;
 
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeGlobal,
@@ -337,11 +477,11 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             child: SafeArea(
               child: Column(
                 children: [
-                  _construirCabecera(isDark),
-                  _construirBarraOracionGlass(isDark, isMobile),
-                  const SizedBox(height: 8),
-                  _construirBarraNavegacionInterna(isDark, isMobile),
-                  _construirGrillaPrincipal(isDark, isMobile),
+                  _construirCabecera(isDark, isMobile, isMobileLandscape),
+                  _construirBarraOracionGlass(isDark, isMobile, isMobileLandscape),
+                  SizedBox(height: isMobileLandscape ? 2 : 8),
+                  _construirBarraNavegacionInterna(isDark, isMobile, isMobileLandscape),
+                  _construirGrillaPrincipal(isDark, isMobile, isMobileLandscape),
                 ],
               ),
             ),
@@ -355,95 +495,98 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // CABECERA
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirCabecera(bool isDark) {
+  Widget _construirCabecera(bool isDark, bool isMobile, bool isMobileLandscape) {
     final user = FirebaseAuth.instance.currentUser;
-    final String correoSeguro =
-        user?.email?.toLowerCase().trim() ?? '';
+    final String correoSeguro = user?.email?.toLowerCase().trim() ?? '';
     final bool esAdmin = correoSeguro == 'fonoaudiologia41@gmail.com';
     final String primerNombre = _nombreUsuario.split(' ').first;
-    final colorTextoPrincipal =
-        isDark ? Colors.white : const Color(0xFF1E293B);
+    final colorTextoPrincipal = isDark ? Colors.white : const Color(0xFF1E293B);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 800;
-
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 12 : 24,
-            vertical: isMobile ? 8 : 10,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '¡Hola, $primerNombre! 👋',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: isMobile ? 18 : 26,
-                          color: colorTextoPrincipal,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobileLandscape ? 2 : (isMobile ? 8 : 10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    '¡Hola, $primerNombre! 👋',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: isMobileLandscape ? 15 : (isMobile ? 18 : 26),
+                      color: colorTextoPrincipal,
                     ),
-                    const SizedBox(width: 8),
-                    _BadgePlan(isPro: _isPro),
-                  ],
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
+                _BadgePlan(isPro: _isPro, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (esAdmin)
+                _HeaderButton(
+                  isDark: isDark,
+                  isMobile: isMobile,
+                  isMobileLandscape: isMobileLandscape,
+                  icon: Icons.admin_panel_settings,
+                  label: isMobile ? null : 'Admin',
+                  color: Colors.amber.shade600,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                  ),
+                ),
+                
+              _HeaderButton(
+                isDark: isDark,
+                isMobile: isMobile,
+                isMobileLandscape: isMobileLandscape,
+                icon: Icons.record_voice_over,
+                label: isMobile ? null : 'Voz',
+                color: Colors.blueAccent.shade400,
+                onTap: _mostrarSelectorDeVoz,
               ),
 
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (esAdmin)
-                    _HeaderButton(
-                      isDark: isDark,
-                      isMobile: isMobile,
-                      icon: Icons.admin_panel_settings,
-                      label: isMobile ? null : 'Admin',
-                      color: Colors.amber.shade600,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AdminPanelScreen()),
-                      ),
-                    ),
-                  const ThemeToggleButton(),
-                  _HeaderButton(
-                    isDark: isDark,
-                    isMobile: isMobile,
-                    icon: Icons.person_outline,
-                    label: isMobile ? null : 'Mi Perfil',
-                    color: colorTextoPrincipal,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ProfileScreen()),
-                    ),
-                  ),
-                  _HeaderButton(
-                    isDark: isDark,
-                    isMobile: isMobile,
-                    icon: Icons.power_settings_new_rounded,
-                    label: isMobile ? null : 'Salir',
-                    color: Colors.redAccent,
-                    borderColor: isDark
-                        ? Colors.redAccent.withOpacity(0.4)
-                        : Colors.red.shade200,
-                    bg: isDark
-                        ? Colors.redAccent.withOpacity(0.12)
-                        : Colors.red.shade50,
-                    onTap: () => FirebaseAuth.instance.signOut(),
-                  ),
-                ],
+              const ThemeToggleButton(),
+              _HeaderButton(
+                isDark: isDark,
+                isMobile: isMobile,
+                isMobileLandscape: isMobileLandscape,
+                icon: Icons.person_outline,
+                label: isMobile ? null : 'Mi Perfil',
+                color: colorTextoPrincipal,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                ),
+              ),
+              _HeaderButton(
+                isDark: isDark,
+                isMobile: isMobile,
+                isMobileLandscape: isMobileLandscape,
+                icon: Icons.power_settings_new_rounded,
+                label: isMobile ? null : 'Salir',
+                color: Colors.redAccent,
+                borderColor: isDark
+                    ? Colors.redAccent.withOpacity(0.4)
+                    : Colors.red.shade200,
+                bg: isDark
+                    ? Colors.redAccent.withOpacity(0.12)
+                    : Colors.red.shade50,
+                onTap: () => FirebaseAuth.instance.signOut(),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -451,16 +594,16 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // BARRA DE ORACIÓN GLASS
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirBarraOracionGlass(bool isDark, bool isMobile) {
+  Widget _construirBarraOracionGlass(bool isDark, bool isMobile, bool isMobileLandscape) {
     return Container(
-      height: isMobile ? 100 : 165,
+      height: isMobileLandscape ? 70 : (isMobile ? 100 : 165),
       margin: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
-      padding: EdgeInsets.all(isMobile ? 8 : 14),
+      padding: EdgeInsets.all(isMobileLandscape ? 4 : (isMobile ? 8 : 14)),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withOpacity(0.05)
             : Colors.white.withOpacity(0.65),
-        borderRadius: BorderRadius.circular(isMobile ? 24 : 36),
+        borderRadius: BorderRadius.circular(isMobileLandscape ? 20 : (isMobile ? 24 : 36)),
         border: Border.all(
           color: isDark
               ? Colors.white.withOpacity(0.12)
@@ -482,10 +625,10 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
               duration: const Duration(milliseconds: 280),
               switchInCurve: Curves.easeOutBack,
               child: _oracionActual.isEmpty
-                  ? _EmptyPhraseHint(isDark: isDark, isMobile: isMobile, key: const ValueKey('empty'))
+                  ? _EmptyPhraseHint(isDark: isDark, isMobile: isMobile, isMobileLandscape: isMobileLandscape, key: const ValueKey('empty'))
                   : ClipRRect(
                       key: const ValueKey('lista'),
-                      borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
+                      borderRadius: BorderRadius.circular(isMobileLandscape ? 12 : (isMobile ? 16 : 24)),
                       child: ListView.builder(
                         controller: _scrollController,
                         scrollDirection: Axis.horizontal,
@@ -506,7 +649,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                                     child: child),
                               ),
                             ),
-                            child: _MiniTarjeta(pic: _oracionActual[index], isDark: isDark, isMobile: isMobile),
+                            child: _MiniTarjeta(
+                              pic: _oracionActual[index], 
+                              isDark: isDark, 
+                              isMobile: isMobile, 
+                              isMobileLandscape: isMobileLandscape,
+                              isHighlighted: _indiceDestacado == index, // NUEVO: ¡Aquí conectamos el brillo!
+                            ),
                           );
                         },
                       ),
@@ -518,13 +667,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             margin: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10),
             color: isDark ? Colors.white24 : Colors.white,
           ),
-          _construirControlesBarra(isDark, isMobile),
+          _construirControlesBarra(isDark, isMobile, isMobileLandscape),
         ],
       ),
     );
   }
 
-  Widget _construirControlesBarra(bool isDark, bool isMobile) {
+  Widget _construirControlesBarra(bool isDark, bool isMobile, bool isMobileLandscape) {
     final bool canSpeak = _oracionActual.isNotEmpty && !_isSpeaking;
 
     return Column(
@@ -538,14 +687,16 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
               onTap: _borrarUltimo,
               isDark: isDark,
               isMobile: isMobile,
+              isMobileLandscape: isMobileLandscape,
             ),
-            SizedBox(width: isMobile ? 4 : 8),
+            SizedBox(width: isMobileLandscape ? 4 : (isMobile ? 4 : 8)),
             _BotonControlUltra(
               icono: Icons.delete_sweep,
               color: isDark ? Colors.grey.shade300 : Colors.blueGrey,
               onTap: _borrarTodo,
               isDark: isDark,
               isMobile: isMobile,
+              isMobileLandscape: isMobileLandscape,
             ),
           ],
         ),
@@ -554,8 +705,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 280),
             padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 12 : 22, 
-              vertical: isMobile ? 8 : 16
+              horizontal: isMobileLandscape ? 8 : (isMobile ? 12 : 22), 
+              vertical: isMobileLandscape ? 4 : (isMobile ? 8 : 16)
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -567,7 +718,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                             ? [Colors.white10, Colors.white12]
                             : [Colors.grey.shade300, Colors.grey.shade400]),
               ),
-              borderRadius: BorderRadius.circular(isMobile ? 18 : 28),
+              borderRadius: BorderRadius.circular(isMobileLandscape ? 12 : (isMobile ? 18 : 28)),
               border: Border.all(
                 color: Colors.white.withOpacity(0.4),
                 width: 1.5,
@@ -581,8 +732,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                   child: _isSpeaking
                       ? SizedBox(
                           key: const ValueKey('speaking'),
-                          width: isMobile ? 16 : 28,
-                          height: isMobile ? 16 : 28,
+                          width: isMobileLandscape ? 12 : (isMobile ? 16 : 28),
+                          height: isMobileLandscape ? 12 : (isMobile ? 16 : 28),
                           child: const CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2.5,
@@ -594,14 +745,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                           color: canSpeak
                               ? Colors.white
                               : (isDark ? Colors.white30 : Colors.grey.shade600),
-                          size: isMobile ? 20 : 30,
+                          size: isMobileLandscape ? 16 : (isMobile ? 20 : 30),
                         ),
                 ),
-                SizedBox(width: isMobile ? 4 : 6),
+                SizedBox(width: isMobileLandscape ? 2 : (isMobile ? 4 : 6)),
                 Text(
                   _isSpeaking ? 'HABLANDO' : 'HABLAR',
                   style: TextStyle(
-                    fontSize: isMobile ? 11 : 16,
+                    fontSize: isMobileLandscape ? 9 : (isMobile ? 11 : 16),
                     fontWeight: FontWeight.w900,
                     color: (canSpeak || _isSpeaking)
                         ? Colors.white
@@ -621,56 +772,59 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // BARRA NAVEGACIÓN INTERNA
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirBarraNavegacionInterna(bool isDark, bool isMobile) {
+  Widget _construirBarraNavegacionInterna(bool isDark, bool isMobile, bool isMobileLandscape) {
     if (_carpetaActual == null) return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 12 : 20, 
-        vertical: 4
+        vertical: isMobileLandscape ? 0 : 4
       ),
       child: Row(
         children: [
           ElevatedButton.icon(
             onPressed: _volverACarpetas,
-            icon: Icon(Icons.arrow_back_rounded, color: Colors.white, size: isMobile ? 18 : 24),
+            icon: Icon(Icons.arrow_back_rounded, color: Colors.white, size: isMobileLandscape ? 14 : (isMobile ? 18 : 24)),
             label: Text(isMobile ? 'Atrás' : 'Categorías',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 12 : 14)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobileLandscape ? 10 : (isMobile ? 12 : 14))),
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
                   ? Colors.white24
                   : Colors.blueGrey.shade400,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: isMobile ? 6 : 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobileLandscape ? 8 : (isMobile ? 12 : 16), 
+                vertical: isMobileLandscape ? 4 : (isMobile ? 6 : 12)
+              ),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(isMobile ? 14 : 18)),
+                  borderRadius: BorderRadius.circular(isMobileLandscape ? 10 : (isMobile ? 14 : 18))),
             ),
           ),
-          SizedBox(width: isMobile ? 8 : 14),
+          SizedBox(width: isMobileLandscape ? 6 : (isMobile ? 8 : 14)),
           if (_carpetaActual!.rutaImagen != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.asset(
                 _carpetaActual!.rutaImagen!,
-                width: isMobile ? 20 : 26,
-                height: isMobile ? 20 : 26,
+                width: isMobileLandscape ? 16 : (isMobile ? 20 : 26),
+                height: isMobileLandscape ? 16 : (isMobile ? 20 : 26),
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Icon(
                   _carpetaActual!.icono ?? Icons.folder,
-                  size: isMobile ? 20 : 26,
+                  size: isMobileLandscape ? 16 : (isMobile ? 20 : 26),
                   color: isDark ? Colors.white : Colors.blueGrey,
                 ),
               ),
             )
           else
             Icon(_carpetaActual!.icono ?? Icons.folder,
-                color: isDark ? Colors.white : Colors.blueGrey, size: isMobile ? 20 : 26),
+                color: isDark ? Colors.white : Colors.blueGrey, size: isMobileLandscape ? 16 : (isMobile ? 20 : 26)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               _carpetaActual!.nombre,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: isMobile ? 16 : 20,
+                fontSize: isMobileLandscape ? 14 : (isMobile ? 16 : 20),
                 fontWeight: FontWeight.w900,
                 color: isDark ? Colors.white : Colors.blueGrey,
               ),
@@ -685,7 +839,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // GRILLA PRINCIPAL
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirGrillaPrincipal(bool isDark, bool isMobile) {
+  Widget _construirGrillaPrincipal(bool isDark, bool isMobile, bool isMobileLandscape) {
     final int itemCount = _carpetaActual == null
         ? _palabrasFrecuentes.length + _carpetas.length
         : _carpetaActual!.pictogramas.length;
@@ -696,13 +850,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             parent: AlwaysScrollableScrollPhysics()),
         padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 12 : 16, 
-            vertical: 10
+            vertical: isMobileLandscape ? 6 : 10
         ),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: isMobile ? 100 : 165,
+          maxCrossAxisExtent: isMobileLandscape ? 85 : (isMobile ? 100 : 165),
           childAspectRatio: 1.0,
-          crossAxisSpacing: isMobile ? 10 : 16,
-          mainAxisSpacing: isMobile ? 12 : 18,
+          crossAxisSpacing: isMobileLandscape ? 8 : (isMobile ? 10 : 16),
+          mainAxisSpacing: isMobileLandscape ? 8 : (isMobile ? 12 : 18),
         ),
         itemCount: itemCount,
         itemBuilder: (context, index) {
@@ -721,14 +875,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                     scale: t.clamp(0.0, 1.15), child: child),
               );
             },
-            child: _construirElementoGrilla(index, isDark, isMobile),
+            child: _construirElementoGrilla(index, isDark, isMobile, isMobileLandscape),
           );
         },
       ),
     );
   }
 
-  Widget _construirElementoGrilla(int index, bool isDark, bool isMobile) {
+  Widget _construirElementoGrilla(int index, bool isDark, bool isMobile, bool isMobileLandscape) {
     if (_carpetaActual != null) {
       final pic = _carpetaActual!.pictogramas[index];
       return TarjetaSquish3D(
@@ -737,6 +891,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         onTap: () => _agregarPictograma(pic),
         isDark: isDark,
         isMobile: isMobile,
+        isMobileLandscape: isMobileLandscape,
       );
     }
     if (index < _palabrasFrecuentes.length) {
@@ -747,6 +902,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         onTap: () => _agregarPictograma(pic),
         isDark: isDark,
         isMobile: isMobile,
+        isMobileLandscape: isMobileLandscape,
       );
     }
     final carpeta = _carpetas[index - _palabrasFrecuentes.length];
@@ -756,6 +912,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       onTap: () => _abrirCarpeta(carpeta),
       isDark: isDark,
       isMobile: isMobile,
+      isMobileLandscape: isMobileLandscape,
     );
   }
 }
@@ -766,14 +923,19 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
 class _BadgePlan extends StatelessWidget {
   final bool isPro;
-  const _BadgePlan({required this.isPro});
+  final bool isMobile;
+  final bool isMobileLandscape;
+  
+  const _BadgePlan({required this.isPro, required this.isMobile, required this.isMobileLandscape});
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 800;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 6 : 10, 
+        vertical: isMobileLandscape ? 2 : 4
+      ),
       decoration: BoxDecoration(
         color: isPro ? Colors.amber.shade400 : Colors.blueGrey.shade400,
         borderRadius: BorderRadius.circular(12),
@@ -783,7 +945,7 @@ class _BadgePlan extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.w900,
           color: Colors.white,
-          fontSize: isMobile ? 11 : 13,
+          fontSize: isMobileLandscape ? 9 : (isMobile ? 11 : 13),
         ),
       ),
     );
@@ -793,6 +955,7 @@ class _BadgePlan extends StatelessWidget {
 class _HeaderButton extends StatelessWidget {
   final bool isDark;
   final bool isMobile;
+  final bool isMobileLandscape;
   final IconData icon;
   final String? label;
   final Color color;
@@ -803,6 +966,7 @@ class _HeaderButton extends StatelessWidget {
   const _HeaderButton({
     required this.isDark,
     required this.isMobile,
+    required this.isMobileLandscape,
     required this.icon,
     required this.color,
     required this.onTap,
@@ -824,23 +988,23 @@ class _HeaderButton extends StatelessWidget {
       margin: const EdgeInsets.only(left: 6),
       decoration: BoxDecoration(
         color: effectiveBg,
-        borderRadius: BorderRadius.circular(isMobile ? 16 : 22),
+        borderRadius: BorderRadius.circular(isMobileLandscape ? 12 : (isMobile ? 16 : 22)),
         border: Border.all(color: effectiveBorder, width: 1.5),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(isMobile ? 16 : 22),
+          borderRadius: BorderRadius.circular(isMobileLandscape ? 12 : (isMobile ? 16 : 22)),
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: label != null ? 14 : (isMobile ? 8 : 11),
-              vertical: isMobile ? 8 : 10,
+              vertical: isMobileLandscape ? 4 : (isMobile ? 8 : 10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: color, size: label != null ? 20 : 18),
+                Icon(icon, color: color, size: label != null ? 20 : (isMobileLandscape ? 16 : 18)),
                 if (label != null) ...[
                   const SizedBox(width: 6),
                   Text(label!,
@@ -860,7 +1024,9 @@ class _HeaderButton extends StatelessWidget {
 class _EmptyPhraseHint extends StatelessWidget {
   final bool isDark;
   final bool isMobile;
-  const _EmptyPhraseHint({super.key, required this.isDark, required this.isMobile});
+  final bool isMobileLandscape;
+  
+  const _EmptyPhraseHint({super.key, required this.isDark, required this.isMobile, required this.isMobileLandscape});
 
   @override
   Widget build(BuildContext context) {
@@ -876,16 +1042,16 @@ class _EmptyPhraseHint extends StatelessWidget {
           ),
           child: Icon(
             Icons.auto_awesome,
-            size: isMobile ? 36 : 52,
+            size: isMobileLandscape ? 26 : (isMobile ? 36 : 52),
             color: isDark ? Colors.white24 : Colors.grey.shade400,
           ),
         ),
-        SizedBox(height: isMobile ? 6 : 10),
+        SizedBox(height: isMobileLandscape ? 2 : (isMobile ? 6 : 10)),
         Text(
           '¡Arma tu frase mágica!',
           style: TextStyle(
             color: isDark ? Colors.white54 : Colors.grey.shade500,
-            fontSize: isMobile ? 14 : 18,
+            fontSize: isMobileLandscape ? 11 : (isMobile ? 14 : 18),
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -894,43 +1060,66 @@ class _EmptyPhraseHint extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NUEVO: TARJETA ANIMADA CON BRILLO MÁGICO
+// ─────────────────────────────────────────────────────────────────────────────
 class _MiniTarjeta extends StatelessWidget {
   final Pictograma pic;
   final bool isDark;
   final bool isMobile;
+  final bool isMobileLandscape;
+  final bool isHighlighted;
 
-  const _MiniTarjeta({required this.pic, required this.isDark, required this.isMobile});
+  const _MiniTarjeta({
+    required this.pic, 
+    required this.isDark, 
+    required this.isMobile, 
+    required this.isMobileLandscape,
+    this.isHighlighted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: isMobile ? 55 : 100,
-      height: isMobile ? 55 : 100,
-      margin: EdgeInsets.only(right: isMobile ? 6 : 10, top: 4, bottom: 4),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
+      height: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
+      margin: EdgeInsets.only(right: isMobileLandscape ? 4 : (isMobile ? 6 : 10), top: 4, bottom: 4),
       decoration: BoxDecoration(
         color: pic.colorFondo,
-        borderRadius: BorderRadius.circular(isMobile ? 12 : 20),
-        border: Border.all(color: Colors.white, width: isMobile ? 1.5 : 2.5),
+        borderRadius: BorderRadius.circular(isMobileLandscape ? 10 : (isMobile ? 12 : 20)),
+        // Destello visual al ser hablado
+        border: Border.all(
+          color: isHighlighted ? Colors.yellowAccent.shade400 : Colors.white, 
+          width: isHighlighted ? 3.5 : (isMobile ? 1.5 : 2.5)
+        ),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 8,
-            offset: const Offset(0, 6),
-          )
+          if (isHighlighted)
+            BoxShadow(
+              color: Colors.yellowAccent.shade400.withOpacity(0.8),
+              blurRadius: 15,
+              spreadRadius: 2,
+            )
+          else
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 6),
+            )
         ],
       ),
       child: pic.rutaImagen != null
           ? ClipRRect(
-              borderRadius: BorderRadius.circular(isMobile ? 10 : 17),
+              borderRadius: BorderRadius.circular(isMobileLandscape ? 8 : (isMobile ? 10 : 17)),
               child: Image.asset(
                 pic.rutaImagen!,
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _PictoFallback(pic: pic, isMobile: isMobile),
+                errorBuilder: (_, __, ___) => _PictoFallback(pic: pic, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
               ),
             )
-          : _PictoFallback(pic: pic, isMobile: isMobile),
+          : _PictoFallback(pic: pic, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
     );
   }
 }
@@ -938,7 +1127,9 @@ class _MiniTarjeta extends StatelessWidget {
 class _PictoFallback extends StatelessWidget {
   final Pictograma pic;
   final bool isMobile;
-  const _PictoFallback({required this.pic, this.isMobile = false});
+  final bool isMobileLandscape;
+  
+  const _PictoFallback({required this.pic, this.isMobile = false, this.isMobileLandscape = false});
 
   @override
   Widget build(BuildContext context) {
@@ -947,16 +1138,16 @@ class _PictoFallback extends StatelessWidget {
       children: [
         Icon(
           pic.icono ?? Icons.image_not_supported_outlined,
-          size: isMobile ? 22 : 36,
+          size: isMobileLandscape ? 18 : (isMobile ? 22 : 36),
           color: Colors.black87,
         ),
-        SizedBox(height: isMobile ? 2 : 4),
+        SizedBox(height: isMobileLandscape ? 1 : (isMobile ? 2 : 4)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Text(
             pic.palabra,
             style: TextStyle(
-              fontSize: isMobile ? 9 : 12,
+              fontSize: isMobileLandscape ? 8 : (isMobile ? 9 : 12),
               fontWeight: FontWeight.w900,
               letterSpacing: -0.3,
               color: Colors.black87,
@@ -977,6 +1168,7 @@ class TarjetaCarpeta3D extends StatefulWidget {
   final bool isLocked;
   final bool isDark;
   final bool isMobile;
+  final bool isMobileLandscape;
 
   const TarjetaCarpeta3D({
     super.key,
@@ -985,6 +1177,7 @@ class TarjetaCarpeta3D extends StatefulWidget {
     this.isLocked = false,
     required this.isDark,
     required this.isMobile,
+    required this.isMobileLandscape,
   });
 
   @override
@@ -1072,7 +1265,7 @@ class _TarjetaCarpeta3DState extends State<TarjetaCarpeta3D>
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
               color: bgColor,
-              borderRadius: BorderRadius.circular(widget.isMobile ? 20 : 28),
+              borderRadius: BorderRadius.circular(widget.isMobileLandscape ? 16 : (widget.isMobile ? 20 : 28)),
               border: Border.all(
                   color: Colors.white, width: widget.isMobile ? 2 : (_isHovered ? 4 : 2)),
               boxShadow: [
@@ -1090,7 +1283,7 @@ class _TarjetaCarpeta3DState extends State<TarjetaCarpeta3D>
               children: [
                 if (widget.carpeta.rutaImagen != null)
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(widget.isMobile ? 18 : 26),
+                    borderRadius: BorderRadius.circular(widget.isMobileLandscape ? 14 : (widget.isMobile ? 18 : 26)),
                     child: Image.asset(
                       widget.carpeta.rutaImagen!,
                       width: double.infinity,
@@ -1100,6 +1293,7 @@ class _TarjetaCarpeta3DState extends State<TarjetaCarpeta3D>
                         carpeta: widget.carpeta,
                         iconColor: iconColor,
                         isMobile: widget.isMobile,
+                        isMobileLandscape: widget.isMobileLandscape,
                       ),
                     ),
                   )
@@ -1108,25 +1302,26 @@ class _TarjetaCarpeta3DState extends State<TarjetaCarpeta3D>
                     top: widget.isMobile ? -6 : -12,
                     right: widget.isMobile ? -6 : -12,
                     child: Icon(Icons.folder_open,
-                        size: widget.isMobile ? 50 : 90,
+                        size: widget.isMobileLandscape ? 40 : (widget.isMobile ? 50 : 90),
                         color: Colors.white.withOpacity(0.18)),
                   ),
                   _CarpetaFallbackContent(
                     carpeta: widget.carpeta,
                     iconColor: iconColor,
                     isMobile: widget.isMobile,
+                    isMobileLandscape: widget.isMobileLandscape,
                   ),
                 ],
                 if (widget.isLocked)
                   Positioned(
-                    top: widget.isMobile ? 8 : 12,
-                    right: widget.isMobile ? 8 : 12,
+                    top: widget.isMobileLandscape ? 6 : (widget.isMobile ? 8 : 12),
+                    right: widget.isMobileLandscape ? 6 : (widget.isMobile ? 8 : 12),
                     child: Icon(
                       Icons.lock_rounded,
                       color: widget.isDark
                           ? Colors.white54
                           : Colors.blueGrey.shade400,
-                      size: widget.isMobile ? 20 : 28,
+                      size: widget.isMobileLandscape ? 16 : (widget.isMobile ? 20 : 28),
                     ),
                   ),
               ],
@@ -1142,23 +1337,29 @@ class _CarpetaFallbackContent extends StatelessWidget {
   final CarpetaCAA carpeta;
   final Color iconColor;
   final bool isMobile;
-  const _CarpetaFallbackContent(
-      {required this.carpeta, required this.iconColor, required this.isMobile});
+  final bool isMobileLandscape;
+  
+  const _CarpetaFallbackContent({
+    required this.carpeta, 
+    required this.iconColor, 
+    required this.isMobile,
+    required this.isMobileLandscape
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(carpeta.icono ?? Icons.folder, size: isMobile ? 36 : 58, color: iconColor),
-        SizedBox(height: isMobile ? 4 : 8),
+        Icon(carpeta.icono ?? Icons.folder, size: isMobileLandscape ? 30 : (isMobile ? 36 : 58), color: iconColor),
+        SizedBox(height: isMobileLandscape ? 2 : (isMobile ? 4 : 8)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             carpeta.nombre,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: isMobile ? 14 : 20,
+              fontSize: isMobileLandscape ? 12 : (isMobile ? 14 : 20),
               fontWeight: FontWeight.w900,
               letterSpacing: -0.3,
               color: iconColor,
@@ -1176,6 +1377,7 @@ class TarjetaSquish3D extends StatefulWidget {
   final bool isLocked;
   final bool isDark;
   final bool isMobile;
+  final bool isMobileLandscape;
 
   const TarjetaSquish3D({
     super.key,
@@ -1184,6 +1386,7 @@ class TarjetaSquish3D extends StatefulWidget {
     this.isLocked = false,
     required this.isDark,
     required this.isMobile,
+    required this.isMobileLandscape,
   });
 
   @override
@@ -1279,7 +1482,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
                 center: const Alignment(-0.5, -0.5),
                 radius: 1.5,
               ),
-              borderRadius: BorderRadius.circular(widget.isMobile ? 22 : 32),
+              borderRadius: BorderRadius.circular(widget.isMobileLandscape ? 16 : (widget.isMobile ? 22 : 32)),
               border: Border.all(
                   color: Colors.white.withOpacity(0.9),
                   width: widget.isMobile ? 2 : (_isHovered ? 4 : 2)),
@@ -1298,7 +1501,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
               children: [
                 if (widget.pic.rutaImagen != null)
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(widget.isMobile ? 20 : 30),
+                    borderRadius: BorderRadius.circular(widget.isMobileLandscape ? 14 : (widget.isMobile ? 20 : 30)),
                     child: AnimatedScale(
                       scale: _isPressed ? 0.95 : 1.0,
                       duration: const Duration(milliseconds: 100),
@@ -1308,7 +1511,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
                         height: double.infinity,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
-                            _PictoFallback(pic: widget.pic, isMobile: widget.isMobile),
+                            _PictoFallback(pic: widget.pic, isMobile: widget.isMobile, isMobileLandscape: widget.isMobileLandscape),
                       ),
                     ),
                   )
@@ -1320,9 +1523,9 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
                         scale: _isPressed ? 0.9 : 1.0,
                         duration: const Duration(milliseconds: 100),
                         child: Icon(widget.pic.icono,
-                            size: widget.isMobile ? 40 : 62, color: iconColor),
+                            size: widget.isMobileLandscape ? 30 : (widget.isMobile ? 40 : 62), color: iconColor),
                       ),
-                      SizedBox(height: widget.isMobile ? 4 : 8),
+                      SizedBox(height: widget.isMobileLandscape ? 2 : (widget.isMobile ? 4 : 8)),
                       Padding(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 4),
@@ -1332,7 +1535,7 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: widget.isMobile ? 12 : 17,
+                            fontSize: widget.isMobileLandscape ? 10 : (widget.isMobile ? 12 : 17),
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.3,
                             color: textColor,
@@ -1343,14 +1546,14 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
                   ),
                 if (widget.isLocked)
                   Positioned(
-                    top: widget.isMobile ? 8 : 12,
-                    right: widget.isMobile ? 8 : 12,
+                    top: widget.isMobileLandscape ? 6 : (widget.isMobile ? 8 : 12),
+                    right: widget.isMobileLandscape ? 6 : (widget.isMobile ? 8 : 12),
                     child: Icon(
                       Icons.lock_rounded,
                       color: widget.isDark
                           ? Colors.white54
                           : Colors.blueGrey.shade300,
-                      size: widget.isMobile ? 18 : 26,
+                      size: widget.isMobileLandscape ? 14 : (widget.isMobile ? 18 : 26),
                     ),
                   ),
               ],
@@ -1368,6 +1571,7 @@ class _BotonControlUltra extends StatefulWidget {
   final VoidCallback onTap;
   final bool isDark;
   final bool isMobile;
+  final bool isMobileLandscape;
 
   const _BotonControlUltra({
     required this.icono,
@@ -1375,6 +1579,7 @@ class _BotonControlUltra extends StatefulWidget {
     required this.onTap,
     required this.isDark,
     required this.isMobile,
+    required this.isMobileLandscape,
   });
 
   @override
@@ -1397,8 +1602,8 @@ class _BotonControlUltraState extends State<_BotonControlUltra> {
         scale: _isPressed ? 0.82 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          width: widget.isMobile ? 36 : 52,
-          height: widget.isMobile ? 36 : 52,
+          width: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
+          height: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
           decoration: BoxDecoration(
             color: widget.isDark ? Colors.white10 : Colors.white,
             shape: BoxShape.circle,
@@ -1412,7 +1617,7 @@ class _BotonControlUltraState extends State<_BotonControlUltra> {
               )
             ],
           ),
-          child: Icon(widget.icono, color: widget.color, size: widget.isMobile ? 18 : 26),
+          child: Icon(widget.icono, color: widget.color, size: widget.isMobileLandscape ? 15 : (widget.isMobile ? 18 : 26)),
         ),
       ),
     );

@@ -1,12 +1,12 @@
 {
-    "name": "fono_app",
-    "short_name": "fono_app",
+    "name": "FonoApp",
+    "short_name": "FonoApp",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#020617",
+    "theme_color": "#020617",
+    "description": "Herramienta de Comunicación Aumentativa y Alternativa",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

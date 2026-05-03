@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // NUEVO: Para controlar la rotación del dispositivo
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
@@ -8,9 +9,19 @@ final ValueNotifier<bool> isDarkModeGlobal = ValueNotifier(true);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // NUEVO: Regla estricta de rotación.
+  // Permite vertical normal y ambos horizontales. Bloquea vertical al revés.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   runApp(const FonoApp());
 }
 
@@ -22,13 +33,8 @@ class FonoApp extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeGlobal,
       builder: (context, isDark, child) {
-        // MEJORA: AnimatedTheme hace que el switch de tema sea una transición
-        // suave en lugar de un corte instantáneo. Duración de 400ms con
-        // curva easeInOut para un resultado premium.
         return MaterialApp(
           title: 'FonoApp Pro',
-          // MEJORA: themeMode + theme/darkTheme evita reconstruir TODO el árbol
-          // de widgets al cambiar de tema; sólo los que consumen el Theme cambian.
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
@@ -37,8 +43,6 @@ class FonoApp extends StatelessWidget {
             ),
             useMaterial3: true,
             fontFamily: 'Roboto',
-            // MEJORA: pageTransitionsTheme unificado para transiciones
-            // nativas y fluidas en todas las plataformas.
             pageTransitionsTheme: const PageTransitionsTheme(
               builders: {
                 TargetPlatform.android: CupertinoPageTransitionsBuilder(),
