@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 // 1. EL ENUMERADOR (La Clave Fitzgerald - Tonos Pastel Modernos)
 enum CategoriaCAA {
   pronombre(Color.fromARGB(174, 255, 238, 0)),     // Amarillo suave (Sujetos y pronombres)
-  persona(Color.fromARGB(174, 255, 238, 0)),     // Amarillo suave (Sujetos y pronombres)
-  accion(Color.fromARGB(255, 251, 111, 239)),      // Verde menta (Verbos y acciones)
-  alimento(Color(0xFFFDBA74)),    // Naranja melocotón (Comida/Bebida/Objetos)
-  objeto(Color(0xFFFDBA74)),      // Naranja melocotón (Cosas inertes/Lugares)
-  social(Color(0xFFF9A8D4)),      // Rosa chicle (Interacción social/cortesía/frases hechas)
+  persona(Color.fromARGB(174, 255, 238, 0)),       // Amarillo suave (Sujetos y pronombres)
+  accion(Color.fromARGB(255, 251, 111, 239)),      // Verde menta/Rosa (Verbos y acciones)
+  alimento(Color(0xFFFDBA74)),                     // Naranja melocotón (Comida/Bebida/Objetos)
+  objeto(Color(0xFFFDBA74)),                       // Naranja melocotón (Cosas inertes/Lugares)
+  social(Color(0xFFF9A8D4)),                       // Rosa chicle (Interacción social/cortesía/frases hechas)
   saludos(Color.fromARGB(255, 17, 0, 255)),  
-  descriptivo(Color(0xFF93C5FD)); // Azul cielo (Adjetivos, emociones, tiempos, preguntas)
+  descriptivo(Color(0xFF93C5FD));                  // Azul cielo (Adjetivos, emociones, tiempos, preguntas)
 
   final Color colorFondo;
   const CategoriaCAA(this.colorFondo);
@@ -57,6 +57,7 @@ class RepositorioVocabulario {
   // --- NUEVO: VOCABULARIO NÚCLEO (Pantalla Principal) ---
   static List<Pictograma> obtenerPalabrasFrecuentes() {
     return [
+      // GRUPO 1: PRONOMBRES (Sujetos)
       Pictograma(palabra: 'Yo', rutaImagen: "assets/images/INICIO/YO.png", categoria: CategoriaCAA.pronombre),
       Pictograma(palabra: 'Tú', rutaImagen: "assets/images/INICIO/TU.png", categoria: CategoriaCAA.pronombre),
       Pictograma(palabra: 'Él', rutaImagen: "assets/images/INICIO/EL.png", categoria: CategoriaCAA.pronombre),
@@ -65,19 +66,24 @@ class RepositorioVocabulario {
       Pictograma(palabra: 'Ellos', rutaImagen: "assets/images/INICIO/ELLOS.png", categoria: CategoriaCAA.pronombre),
       Pictograma(palabra: 'Nosotros', rutaImagen: "assets/images/INICIO/NOSOTROS.jpg", categoria: CategoriaCAA.pronombre),
       Pictograma(palabra: 'Ustedes', rutaImagen: "assets/images/INICIO/USTEDES.png", categoria: CategoriaCAA.pronombre),
+      
+      // GRUPO 2: ACCIONES / VERBOS
+      Pictograma(palabra: 'QUIERO', rutaImagen: "assets/images/INICIO/QUIERO.png", categoria: CategoriaCAA.accion),
+      Pictograma(palabra: 'NO QUIERO', rutaImagen: "assets/images/INICIO/NO_QUIERO.jpg", categoria: CategoriaCAA.accion),
+      
+      // GRUPO 3: SOCIAL / AFIRMACIÓN
       Pictograma(palabra: 'Sí', rutaImagen: "assets/images/INICIO/SI.png", categoria: CategoriaCAA.social),
       Pictograma(palabra: 'No', rutaImagen: "assets/images/INICIO/NO.png", categoria: CategoriaCAA.social),
+      
+      // GRUPO 4: DESCRIPTIVOS / ADJETIVOS
       Pictograma(palabra: 'Bien', rutaImagen: "assets/images/INICIO/BIEN.png", categoria: CategoriaCAA.descriptivo),
       Pictograma(palabra: 'Mal', rutaImagen: "assets/images/INICIO/MAL.png", categoria: CategoriaCAA.descriptivo),
-      Pictograma(palabra: 'QUIERO', rutaImagen: "assets/images/INICIO/QUIERO.png", categoria: CategoriaCAA.descriptivo),
-      Pictograma(palabra: 'NO QUIERO', rutaImagen: "assets/images/INICIO/NO_QUIERO.jpg", categoria: CategoriaCAA.descriptivo),
     ];
   }
 
   // --- CARPETAS DE CONTEXTO ---
   static List<CarpetaCAA> obtenerCarpetas() {
     return [
-      // CARPETA 1: SOCIAL Y SALUDOS
       CarpetaCAA(
         nombre: 'Saludos',
         rutaImagen: "assets/images/SALUDOS/saludos.png",
@@ -97,12 +103,13 @@ class RepositorioVocabulario {
           Pictograma(palabra: 'Gusto en Verte', rutaImagen: "assets/images/SALUDOS/GUSTO_EN_VERTE.png", categoria: CategoriaCAA.saludos),
           Pictograma(palabra: 'Abrazo', rutaImagen: "assets/images/SALUDOS/ABRAZO.png", categoria: CategoriaCAA.saludos),
           Pictograma(palabra: 'Beso', rutaImagen: "assets/images/SALUDOS/BESO.png", categoria: CategoriaCAA.saludos),
-          Pictograma(palabra: 'Mucho Gusto', rutaImagen: "assets/images/SALUDOS/MUCHO_GUSTO.png", categoria: CategoriaCAA.saludos),        ],
+          Pictograma(palabra: 'Mucho Gusto', rutaImagen: "assets/images/SALUDOS/MUCHO_GUSTO.png", categoria: CategoriaCAA.saludos),        
+        ],
       ),
 
       CarpetaCAA(
         nombre: 'Personas',
-        rutaImagen: "assets/images/PERSONAS/personas.png",
+        rutaImagen: "assets/images/PERSONAS/PERSONAS.png",
         colorFondo: const Color.fromARGB(255, 209, 248, 57),
         esProOnly: false,
         pictogramas: [
@@ -153,7 +160,8 @@ class RepositorioVocabulario {
           Pictograma(palabra: 'SER', rutaImagen: "assets/images/ACCIONES/SER.png", categoria: CategoriaCAA.accion),
           Pictograma(palabra: 'TRABAJAR', rutaImagen: "assets/images/ACCIONES/TRABAJAR.png", categoria: CategoriaCAA.accion),
           Pictograma(palabra: 'VER', rutaImagen: "assets/images/ACCIONES/VER.png", categoria: CategoriaCAA.accion),
-          Pictograma(palabra: 'VESTIR', rutaImagen: "assets/images/ACCIONES/VESTIR.png", categoria: CategoriaCAA.accion),        ],
+          Pictograma(palabra: 'VESTIR', rutaImagen: "assets/images/ACCIONES/VESTIR.png", categoria: CategoriaCAA.accion),        
+        ],
       ),
 
       CarpetaCAA(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math;
+import 'dart:ui'; // Para el efecto Glass
 import 'register_screen.dart'; 
-import '../main.dart'; // Import global
+import '../main.dart'; 
+import '../widgets/theme_toggle_button.dart'; // NUEVO: Importamos el botón oficial
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,19 +13,31 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  late AnimationController _bgAnimationController;
+  late AnimationController _bgController;
+  late AnimationController _pulseController;
+  
+  // Para las micro-interacciones del botón
+  bool _isButtonHovered = false;
+  bool _isButtonPressed = false;
 
   @override
   void initState() {
     super.initState();
-    _bgAnimationController = AnimationController(
+    // Animación lenta y continua para las esferas de luz del fondo
+    _bgController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 15),
+      duration: const Duration(seconds: 20),
+    )..repeat(reverse: true);
+
+    // Animación de "respiración" para el logo central
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
   }
 
@@ -31,17 +45,34 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _bgAnimationController.dispose();
+    _bgController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   void _mostrarError(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje, style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(child: Text(mensaje, style: const TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        ),
+        backgroundColor: Colors.redAccent.shade400, 
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 
   Future<void> _iniciarSesion() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _mostrarError('Por favor, ingresa tus datos.');
+      return;
+    }
+    
     setState(() => _isLoading = true);
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -61,141 +92,218 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeGlobal,
       builder: (context, isDark, child) {
-        final colorTextoPrincipal = isDark ? Colors.white : const Color(0xFF1E293B);
-        final colorFondoTarjeta = isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.85);
+        final colorTexto = isDark ? Colors.white : const Color(0xFF1E293B);
+        final colorTarjeta = isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.7);
+        final colorBorde = isDark ? Colors.white.withOpacity(0.1) : Colors.white;
 
         return Scaffold(
           extendBodyBehindAppBar: true,
+          // APPBAR MODERNA 
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorTextoPrincipal),
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black26 : Colors.white54,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.arrow_back_ios_new_rounded, color: colorTexto, size: 18),
+              ),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
-              GestureDetector(
-                onTap: () => isDarkModeGlobal.value = !isDarkModeGlobal.value,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.blueGrey.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.transparent)
-                    ),
-                    child: Row(
-                      children: [
-                        Text(isDark ? '🌙' : '☀️', style: const TextStyle(fontSize: 16)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            // CORRECCIÓN: Botón de tema oficial y bien espaciado
+            actions: const [
+              ThemeToggleButton(),
+              SizedBox(width: 16),
             ],
           ),
+          
+          // CUERPO PRINCIPAL
           body: Stack(
             children: [
+              // 1. FONDO CON ESFERAS DE LUZ ANIMADAS
               AnimatedBuilder(
-                animation: _bgAnimationController,
+                animation: _bgController,
                 builder: (context, child) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 800),
+                  return Container(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark
-                            ? [const Color(0xFF020617), const Color(0xFF1E1B4B), const Color(0xFF0F172A)]
-                            : [const Color(0xFFE0F2FE), const Color(0xFFF3E8FF), const Color(0xFFE2E8F0)],
-                        stops: const [0.0, 0.5, 1.0],
-                        transform: GradientRotation(_bgAnimationController.value * 2 * math.pi),
-                      ),
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Esfera 1
+                        Positioned(
+                          top: -100 + (math.sin(_bgController.value * math.pi * 2) * 50),
+                          left: -50 + (math.cos(_bgController.value * math.pi) * 30),
+                          child: _LuzFondo(color: Colors.blueAccent.withOpacity(isDark ? 0.4 : 0.2)),
+                        ),
+                        // Esfera 2
+                        Positioned(
+                          bottom: -150 + (math.cos(_bgController.value * math.pi * 2) * 60),
+                          right: -100 + (math.sin(_bgController.value * math.pi) * 40),
+                          child: _LuzFondo(color: Colors.purpleAccent.withOpacity(isDark ? 0.3 : 0.15)),
+                        ),
+                      ],
                     ),
                   );
                 },
               ),
+              
+              // 2. FILTRO BLUR GENERAL
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(color: Colors.transparent),
+              ),
+
+              // 3. TARJETA CENTRAL (Glassmorphism)
               Center(
                 child: SingleChildScrollView(
-                  child: Container(
-                    width: 400,
-                    padding: const EdgeInsets.all(32),
+                  physics: const BouncingScrollPhysics(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    width: 420,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     decoration: BoxDecoration(
-                      color: colorFondoTarjeta,
+                      color: colorTarjeta,
                       borderRadius: BorderRadius.circular(40),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.white, width: 2),
+                      border: Border.all(color: colorBorde, width: 1.5),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, 15))
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.4 : 0.1), 
+                          blurRadius: 40, 
+                          offset: const Offset(0, 20)
+                        )
                       ],
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.record_voice_over, size: 70, color: Colors.blueAccent.shade400),
-                        const SizedBox(height: 16),
-                        Text('FonoApp Pro', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: colorTextoPrincipal, letterSpacing: -1)),
-                        const SizedBox(height: 8),
-                        Text('Inicia sesión para comunicar', style: TextStyle(color: isDark ? Colors.blueGrey.shade300 : Colors.grey.shade600, fontSize: 16)),
-                        const SizedBox(height: 32),
-                        
-                        TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          style: TextStyle(color: colorTextoPrincipal),
-                          decoration: InputDecoration(
-                            labelText: 'Correo electrónico',
-                            labelStyle: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
-                            prefixIcon: Icon(Icons.email, color: isDark ? Colors.blueAccent : Colors.grey),
-                            filled: true,
-                            fillColor: isDark ? Colors.black.withOpacity(0.3) : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          style: TextStyle(color: colorTextoPrincipal),
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            labelStyle: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
-                            prefixIcon: Icon(Icons.lock, color: isDark ? Colors.blueAccent : Colors.grey),
-                            filled: true,
-                            fillColor: isDark ? Colors.black.withOpacity(0.3) : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        
-                        _isLoading 
-                          ? const CircularProgressIndicator(color: Colors.blueAccent)
-                          : SizedBox(
-                              width: double.infinity,
-                              height: 55,
-                              child: ElevatedButton(
-                                onPressed: _iniciarSesion,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent.shade700,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                  elevation: 8,
-                                ),
-                                child: const Text('ENTRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                              ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(40),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // CORRECCIÓN: LOGO ANIMADO (Usando CircleAvatar para evitar recortes)
+                            AnimatedBuilder(
+                              animation: _pulseController,
+                              builder: (context, child) {
+                                return Transform.scale(
+                                  scale: 1.0 + (_pulseController.value * 0.05),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.blueAccent.withOpacity(0.25), 
+                                          blurRadius: 20,
+                                          spreadRadius: 5
+                                        )
+                                      ]
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 45,
+                                      backgroundColor: Colors.blueAccent.withOpacity(0.15),
+                                      child: Icon(Icons.record_voice_over, size: 45, color: Colors.blueAccent.shade400),
+                                    ),
+                                  ),
+                                );
+                              }
                             ),
-                        const SizedBox(height: 16),
-                        
-                        if (!_isLoading)
-                          TextButton(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen())),
-                            child: Text('¿No tienes cuenta? Regístrate aquí', style: TextStyle(color: Colors.blueAccent.shade200, fontWeight: FontWeight.bold)),
-                          )
-                      ],
+                            const SizedBox(height: 24),
+                            
+                            // TEXTOS
+                            Text('FonoApp Pro', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: colorTexto, letterSpacing: -1)),
+                            const SizedBox(height: 8),
+                            Text('Bienvenido de vuelta', style: TextStyle(color: isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600, fontSize: 16, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 40),
+                            
+                            // CAMPO EMAIL
+                            _ConstruirCampoDeTexto(
+                              controller: _emailController,
+                              isDark: isDark,
+                              icono: Icons.email_rounded,
+                              label: 'Correo electrónico',
+                              tipo: TextInputType.emailAddress,
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            // CAMPO CONTRASEÑA
+                            _ConstruirCampoDeTexto(
+                              controller: _passwordController,
+                              isDark: isDark,
+                              icono: Icons.lock_rounded,
+                              label: 'Contraseña',
+                              isPassword: true,
+                            ),
+                            const SizedBox(height: 40),
+                            
+                            // BOTÓN ENTRAR ANIMADO
+                            _isLoading 
+                              ? const CircularProgressIndicator(color: Colors.blueAccent)
+                              : MouseRegion(
+                                  onEnter: (_) => setState(() => _isButtonHovered = true),
+                                  onExit: (_) => setState(() => _isButtonHovered = false),
+                                  child: GestureDetector(
+                                    onTapDown: (_) => setState(() => _isButtonPressed = true),
+                                    onTapUp: (_) {
+                                      setState(() => _isButtonPressed = false);
+                                      _iniciarSesion();
+                                    },
+                                    onTapCancel: () => setState(() => _isButtonPressed = false),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      width: double.infinity,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        gradient: LinearGradient(
+                                          colors: _isButtonHovered
+                                              ? [Colors.blueAccent.shade200, Colors.blueAccent.shade400]
+                                              : [Colors.blueAccent.shade400, Colors.blueAccent.shade700],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.blueAccent.withOpacity(_isButtonHovered ? 0.6 : 0.3),
+                                            blurRadius: _isButtonHovered ? 20 : 10,
+                                            offset: Offset(0, _isButtonPressed ? 2 : 6),
+                                          )
+                                        ],
+                                      ),
+                                      transform: Matrix4.translationValues(0, _isButtonPressed ? 4 : 0, 0),
+                                      child: const Center(
+                                        child: Text(
+                                          'ENTRAR', 
+                                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            
+                            const SizedBox(height: 24),
+                            
+                            // BOTÓN REGISTRO
+                            if (!_isLoading)
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen())),
+                                  child: Text(
+                                    '¿No tienes cuenta? Regístrate aquí', 
+                                    style: TextStyle(
+                                      color: isDark ? Colors.blueAccent.shade200 : Colors.blueAccent.shade700, 
+                                      fontWeight: FontWeight.w800,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: isDark ? Colors.blueAccent.shade200 : Colors.blueAccent.shade700,
+                                    )
+                                  ),
+                                ),
+                              )
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -204,6 +312,94 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         );
       }
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGETS PRIVADOS DE APOYO
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Widget para dibujar las esferas de luz del fondo
+class _LuzFondo extends StatelessWidget {
+  final Color color;
+  const _LuzFondo({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 400,
+      height: 400,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    );
+  }
+}
+
+// Widget encapsulado para un TextField moderno
+class _ConstruirCampoDeTexto extends StatefulWidget {
+  final TextEditingController controller;
+  final bool isDark;
+  final IconData icono;
+  final String label;
+  final bool isPassword;
+  final TextInputType tipo;
+
+  const _ConstruirCampoDeTexto({
+    required this.controller,
+    required this.isDark,
+    required this.icono,
+    required this.label,
+    this.isPassword = false,
+    this.tipo = TextInputType.text,
+  });
+
+  @override
+  State<_ConstruirCampoDeTexto> createState() => _ConstruirCampoDeTextoState();
+}
+
+class _ConstruirCampoDeTextoState extends State<_ConstruirCampoDeTexto> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          color: widget.isDark ? Colors.black.withOpacity(0.25) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _isFocused 
+                ? Colors.blueAccent 
+                : (widget.isDark ? Colors.white12 : Colors.black12),
+            width: _isFocused ? 2 : 1.5,
+          ),
+          boxShadow: [
+            if (_isFocused)
+              BoxShadow(color: Colors.blueAccent.withOpacity(0.15), blurRadius: 12)
+          ]
+        ),
+        child: TextField(
+          controller: widget.controller,
+          obscureText: widget.isPassword,
+          keyboardType: widget.tipo,
+          style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            labelText: widget.label,
+            labelStyle: TextStyle(
+              color: _isFocused ? Colors.blueAccent : (widget.isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+              fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal
+            ),
+            prefixIcon: Icon(widget.icono, color: _isFocused ? Colors.blueAccent : Colors.grey),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          ),
+        ),
+      ),
     );
   }
 }
