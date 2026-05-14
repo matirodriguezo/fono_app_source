@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:math' as math;
+import 'package:provider/provider.dart';
 import 'dart:ui';
-import '../main.dart';
-import '../widgets/theme_toggle_button.dart'; // Importamos el botón del tema
+import '../providers/theme_provider.dart';
+import '../widgets/theme_toggle_button.dart';
+import '../widgets/glass_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,7 +14,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
@@ -24,7 +25,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
-  late AnimationController _bgController;
   late AnimationController _pulseController;
   bool _isButtonHovered = false;
   bool _isButtonPressed = false;
@@ -32,7 +32,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
   }
 
@@ -42,7 +41,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _bgController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -131,9 +129,9 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, _) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         final colorTexto = isDark ? Colors.white : const Color(0xFF1E293B);
         final colorTarjeta = isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.7);
         final colorBorde = isDark ? Colors.white.withOpacity(0.1) : Colors.white;
@@ -158,57 +156,40 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
               SizedBox(width: 16),
             ],
           ),
-          body: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          top: -100 + (math.sin(_bgController.value * math.pi * 2) * 50),
-                          left: -50 + (math.cos(_bgController.value * math.pi) * 30),
-                          child: _LuzFondo(color: Colors.tealAccent.withOpacity(isDark ? 0.3 : 0.15)),
-                        ),
-                        Positioned(
-                          bottom: -150 + (math.cos(_bgController.value * math.pi * 2) * 60),
-                          right: -100 + (math.sin(_bgController.value * math.pi) * 40),
-                          child: _LuzFondo(color: Colors.blueAccent.withOpacity(isDark ? 0.3 : 0.15)),
-                        ),
+          body: GlassLayout(
+            sphere1: const SphereStyle(
+              color: Colors.tealAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+            ),
+            sphere2: const SphereStyle(
+              color: Colors.blueAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Form(
+                  key: _formKey,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    width: 440,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+                    margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: colorTarjeta,
+                      borderRadius: BorderRadius.circular(40),
+                      border: Border.all(color: colorBorde, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.1), blurRadius: 40, offset: const Offset(0, 20))
                       ],
                     ),
-                  );
-                },
-              ),
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-              Center(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Form(
-                    key: _formKey,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      width: 440,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
-                      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                      decoration: BoxDecoration(
-                        color: colorTarjeta,
-                        borderRadius: BorderRadius.circular(40),
-                        border: Border.all(color: colorBorde, width: 1.5),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.1), blurRadius: 40, offset: const Offset(0, 20))
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(40),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                          child: Column(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(40),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               // CORRECCIÓN: LOGO ANIMADO (Usando CircleAvatar para no recortar ni temblar)
@@ -367,21 +348,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                   ),
                 ),
               ),
-            ],
           ),
         );
       },
     );
-  }
-}
-
-// Reutilizamos el widget de Luz
-class _LuzFondo extends StatelessWidget {
-  final Color color;
-  const _LuzFondo({required this.color});
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 400, height: 400, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
   }
 }
 

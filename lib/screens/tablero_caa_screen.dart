@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../models/pictograma.dart';
 import '../services/tts_service.dart';
+import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
 import 'admin_panel_screen.dart';
-import 'dart:async';
 import 'profile_screen.dart';
-import '../main.dart';
 import '../widgets/animated_gradient_background.dart';
 import '../widgets/theme_toggle_button.dart';
 
@@ -33,10 +33,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   late AnimationController _gridIntroController;
   final ScrollController _scrollController = ScrollController();
 
-  bool _isPro = false;
-  String _nombreUsuario = 'Amigo';
-  StreamSubscription<DocumentSnapshot>? _perfilSubscription;
-
   @override
   void initState() {
     super.initState();
@@ -48,37 +44,78 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       duration: const Duration(milliseconds: 1200),
     );
 
-    _cargarPerfilUsuario();
     _gridIntroController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _cargarOracionGuardada();
+      _precachePantallaActual();
+    });
   }
 
-  void _cargarPerfilUsuario() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    _perfilSubscription = FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(user.uid)
-        .snapshots()
-        .listen((doc) {
-      if (doc.exists && mounted) {
-        setState(() {
-          _isPro = doc.data()?['isPro'] ?? false;
-          _nombreUsuario = doc.data()?['nombre'] ?? 'Amigo';
-        });
+  Future<void> _precacheImagenes(List<Pictograma> pictogramas) async {
+    for (final pic in pictogramas) {
+      if (pic.rutaImagen != null) {
+        try {
+          await precacheImage(AssetImage(pic.rutaImagen!), context);
+        } catch (_) {}
       }
-    });
+    }
+  }
+
+  Future<void> _precachePantallaActual() async {
+    await _precacheImagenes(_palabrasFrecuentes);
+    for (final carpeta in _carpetas) {
+      if (carpeta.rutaImagen != null) {
+        try {
+          await precacheImage(AssetImage(carpeta.rutaImagen!), context);
+        } catch (_) {}
+      }
+    }
+  }
+
+  Future<void> _guardarOracion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final palabras = _oracionActual.map((p) => p.palabra).toList();
+    await prefs.setStringList('oracion_actual', palabras);
+  }
+
+  Future<void> _cargarOracionGuardada() async {
+    final prefs = await SharedPreferences.getInstance();
+    final palabras = prefs.getStringList('oracion_actual');
+    if (palabras == null || palabras.isEmpty) return;
+
+    final List<Pictograma> restaurados = [];
+    for (final palabra in palabras) {
+      final encontrado = _buscarPictograma(palabra);
+      if (encontrado != null) {
+        restaurados.add(encontrado);
+      }
+    }
+    if (restaurados.isNotEmpty && mounted) {
+      setState(() => _oracionActual.addAll(restaurados));
+    }
+  }
+
+  Pictograma? _buscarPictograma(String palabra) {
+    for (final pic in _palabrasFrecuentes) {
+      if (pic.palabra == palabra) return pic;
+    }
+    for (final carpeta in _carpetas) {
+      for (final pic in carpeta.pictogramas) {
+        if (pic.palabra == palabra) return pic;
+      }
+    }
+    return null;
   }
 
   @override
   void dispose() {
-    _perfilSubscription?.cancel();
     _gridIntroController.dispose();
     _scrollController.dispose(); 
     super.dispose();
   }
 
   void _abrirCarpeta(CarpetaCAA carpeta) {
-    if (carpeta.esProOnly && !_isPro) {
+    if (carpeta.esProOnly && !context.read<UserProvider>().isPro) {
       _mostrarPaywall();
       return;
     }
@@ -86,6 +123,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     setState(() => _carpetaActual = carpeta);
     _gridIntroController.reset();
     _gridIntroController.forward();
+    _precacheImagenes(carpeta.pictogramas);
   }
 
   void _volverACarpetas() {
@@ -93,6 +131,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     setState(() => _carpetaActual = null);
     _gridIntroController.reset();
     _gridIntroController.forward();
+    _precachePantallaActual();
   }
 
   void _agregarPictograma(Pictograma pic) {
@@ -108,6 +147,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
     setState(() => _oracionActual.add(pic));
     _motorVoz.encolarPalabra(pic.palabra);
+    _guardarOracion();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -133,6 +173,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       }
 
       setState(() => _oracionActual.removeLast());
+      _guardarOracion();
       
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -154,8 +195,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       setState(() {
         _oracionActual.clear();
         _isSpeaking = false;
-        _indiceDestacado = null; // Apaga el brillo
+        _indiceDestacado = null;
       });
+      _guardarOracion();
     }
   }
 
@@ -209,7 +251,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _mostrarSelectorDeVoz() {
     HapticFeedback.mediumImpact();
     final voces = _motorVoz.vocesDisponibles;
-    final isDark = isDarkModeGlobal.value;
+    final isDark = context.read<ThemeProvider>().isDarkMode;
     
     showDialog(
       context: context,
@@ -371,7 +413,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   void _mostrarPaywall() {
     HapticFeedback.heavyImpact();
-    final isDark = isDarkModeGlobal.value;
+    final isDark = context.read<ThemeProvider>().isDarkMode;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -468,16 +510,18 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     final isMobile = size.shortestSide < 650 || size.height < 600;
     final isMobileLandscape = isMobile && isLandscape && size.height < 500;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, _) {
+    final userProvider = context.watch<UserProvider>();
+
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         return Scaffold(
           extendBodyBehindAppBar: true,
           body: AnimatedGradientBackground(
             child: SafeArea(
               child: Column(
                 children: [
-                  _construirCabecera(isDark, isMobile, isMobileLandscape),
+                  _construirCabecera(isDark, isMobile, isMobileLandscape, userProvider),
                   _construirBarraOracionGlass(isDark, isMobile, isMobileLandscape),
                   SizedBox(height: isMobileLandscape ? 2 : 8),
                   _construirBarraNavegacionInterna(isDark, isMobile, isMobileLandscape),
@@ -495,11 +539,9 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // CABECERA
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _construirCabecera(bool isDark, bool isMobile, bool isMobileLandscape) {
-    final user = FirebaseAuth.instance.currentUser;
-    final String correoSeguro = user?.email?.toLowerCase().trim() ?? '';
-    final bool esAdmin = correoSeguro == 'fonoaudiologia41@gmail.com';
-    final String primerNombre = _nombreUsuario.split(' ').first;
+  Widget _construirCabecera(bool isDark, bool isMobile, bool isMobileLandscape, UserProvider userProvider) {
+    final bool esAdmin = userProvider.esAdmin;
+    final String primerNombre = userProvider.nombre.split(' ').first;
     final colorTextoPrincipal = isDark ? Colors.white : const Color(0xFF1E293B);
 
     return Padding(
@@ -524,7 +566,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                _BadgePlan(isPro: _isPro, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
+                _BadgePlan(isPro: userProvider.isPro, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
               ],
             ),
           ),
@@ -581,7 +623,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                 bg: isDark
                     ? Colors.redAccent.withOpacity(0.12)
                     : Colors.red.shade50,
-                onTap: () => FirebaseAuth.instance.signOut(),
+                onTap: () => userProvider.signOut(),
               ),
             ],
           ),
@@ -908,7 +950,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     final carpeta = _carpetas[index - _palabrasFrecuentes.length];
     return TarjetaCarpeta3D(
       carpeta: carpeta,
-      isLocked: carpeta.esProOnly && !_isPro,
+      isLocked: carpeta.esProOnly && !context.read<UserProvider>().isPro,
       onTap: () => _abrirCarpeta(carpeta),
       isDark: isDark,
       isMobile: isMobile,

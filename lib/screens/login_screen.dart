@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:math' as math;
-import 'dart:ui'; // Para el efecto Glass
+import 'package:provider/provider.dart';
+import 'dart:ui';
 import 'register_screen.dart'; 
-import '../main.dart'; 
-import '../widgets/theme_toggle_button.dart'; // NUEVO: Importamos el botón oficial
+import '../providers/theme_provider.dart';
+import '../widgets/theme_toggle_button.dart';
+import '../widgets/glass_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,28 +14,19 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  late AnimationController _bgController;
   late AnimationController _pulseController;
   
-  // Para las micro-interacciones del botón
   bool _isButtonHovered = false;
   bool _isButtonPressed = false;
 
   @override
   void initState() {
     super.initState();
-    // Animación lenta y continua para las esferas de luz del fondo
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    )..repeat(reverse: true);
-
-    // Animación de "respiración" para el logo central
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -45,7 +37,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _bgController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -89,9 +80,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, child) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         final colorTexto = isDark ? Colors.white : const Color(0xFF1E293B);
         final colorTarjeta = isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.7);
         final colorBorde = isDark ? Colors.white.withOpacity(0.1) : Colors.white;
@@ -120,45 +111,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ],
           ),
           
-          // CUERPO PRINCIPAL
-          body: Stack(
-            children: [
-              // 1. FONDO CON ESFERAS DE LUZ ANIMADAS
-              AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Esfera 1
-                        Positioned(
-                          top: -100 + (math.sin(_bgController.value * math.pi * 2) * 50),
-                          left: -50 + (math.cos(_bgController.value * math.pi) * 30),
-                          child: _LuzFondo(color: Colors.blueAccent.withOpacity(isDark ? 0.4 : 0.2)),
-                        ),
-                        // Esfera 2
-                        Positioned(
-                          bottom: -150 + (math.cos(_bgController.value * math.pi * 2) * 60),
-                          right: -100 + (math.sin(_bgController.value * math.pi) * 40),
-                          child: _LuzFondo(color: Colors.purpleAccent.withOpacity(isDark ? 0.3 : 0.15)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              
-              // 2. FILTRO BLUR GENERAL
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-
-              // 3. TARJETA CENTRAL (Glassmorphism)
-              Center(
+          body: GlassLayout(
+            sphere1: const SphereStyle(
+              color: Colors.blueAccent,
+              darkOpacity: 0.4,
+              lightOpacity: 0.2,
+            ),
+            sphere2: const SphereStyle(
+              color: Colors.purpleAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+            ),
+            child: Center(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: AnimatedContainer(
@@ -308,7 +272,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   ),
                 ),
               ),
-            ],
           ),
         );
       }
@@ -319,24 +282,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGETS PRIVADOS DE APOYO
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Widget para dibujar las esferas de luz del fondo
-class _LuzFondo extends StatelessWidget {
-  final Color color;
-  const _LuzFondo({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 400,
-      height: 400,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
-    );
-  }
-}
 
 // Widget encapsulado para un TextField moderno
 class _ConstruirCampoDeTexto extends StatefulWidget {

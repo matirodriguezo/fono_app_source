@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 /// Botón de toggle de tema reutilizable.
 class ThemeToggleButton extends StatelessWidget {
@@ -12,15 +13,15 @@ class ThemeToggleButton extends StatelessWidget {
     // Detectamos si es celular para achicar este botón en específico
     final isMobile = MediaQuery.of(context).size.width < 800;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, _) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         return Tooltip(
           message: isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: () => isDarkModeGlobal.value = !isDark,
+              onTap: () => themeProvider.toggleTheme(),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 // Márgenes más pequeños en celular

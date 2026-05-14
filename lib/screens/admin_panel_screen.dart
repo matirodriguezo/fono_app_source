@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math' as math;
+import 'package:provider/provider.dart';
 import 'dart:ui';
-import '../main.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
+import '../widgets/glass_layout.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -12,27 +13,14 @@ class AdminPanelScreen extends StatefulWidget {
   State<AdminPanelScreen> createState() => _AdminPanelScreenState();
 }
 
-class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerProviderStateMixin {
+class _AdminPanelScreenState extends State<AdminPanelScreen> {
   final Set<String> _pendingUpdates = {};
-  late AnimationController _bgController;
-
-  @override
-  void initState() {
-    super.initState();
-    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 25))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _bgController.dispose();
-    super.dispose();
-  }
 
   Future<void> _cambiarEstadoPro(BuildContext ctx, String docId, String email, bool nuevoValor) async {
     if (_pendingUpdates.contains(docId)) return;
 
     if (!nuevoValor) {
-      final isDark = isDarkModeGlobal.value;
+      final isDark = ctx.read<ThemeProvider>().isDarkMode;
       final confirm = await showDialog<bool>(
         context: ctx,
         builder: (dlg) => AlertDialog(
@@ -80,9 +68,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, _) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         final colorTexto = isDark ? Colors.white : const Color(0xFF1E293B);
         final colorTarjeta = isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.85);
 
@@ -99,71 +87,64 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             centerTitle: true,
             actions: const [ThemeToggleButton(), SizedBox(width: 16)],
           ),
-          body: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-                    child: Stack(
-                      children: [
-                        Positioned(top: -100 + (math.sin(_bgController.value * math.pi * 2) * 50), left: -50 + (math.cos(_bgController.value * math.pi) * 30), child: _LuzFondo(color: Colors.orangeAccent.withOpacity(isDark ? 0.3 : 0.15))),
-                        Positioned(bottom: -150 + (math.cos(_bgController.value * math.pi * 2) * 60), right: -100 + (math.sin(_bgController.value * math.pi) * 40), child: _LuzFondo(color: Colors.blueAccent.withOpacity(isDark ? 0.3 : 0.15))),
-                      ],
-                    ),
-                  );
-                }
-              ),
-              BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
-              
-              SafeArea(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('usuarios').orderBy('fechaRegistro', descending: true).snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) return Center(child: Text('Error al cargar datos', style: TextStyle(color: colorTexto)));
-                    if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    final docs = snapshot.data!.docs;
+          body: GlassLayout(
+            sphere1: const SphereStyle(
+              color: Colors.orangeAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+            ),
+            sphere2: const SphereStyle(
+              color: Colors.blueAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+            ),
+            child: SafeArea(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('usuarios').orderBy('fechaRegistro', descending: true).snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) return Center(child: Text('Error al cargar datos', style: TextStyle(color: colorTexto)));
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  final docs = snapshot.data!.docs;
 
-                    if (docs.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.group_off_rounded, size: 72, color: colorTexto.withOpacity(0.3)),
-                            const SizedBox(height: 16),
-                            Text('No hay usuarios registrados aún.', style: TextStyle(color: colorTexto.withOpacity(0.5), fontSize: 16)),
-                          ],
+                  if (docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.group_off_rounded, size: 72, color: colorTexto.withOpacity(0.3)),
+                          const SizedBox(height: 16),
+                          Text('No hay usuarios registrados aún.', style: TextStyle(color: colorTexto.withOpacity(0.5), fontSize: 16)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final data = docs[index].data() as Map<String, dynamic>;
+                      final String docId = docs[index].id;
+                      final bool isPro = data['isPro'] ?? false;
+                      final String email = data['email'] ?? 'Sin correo';
+                      final String nombre = data['nombre'] ?? 'Sin nombre';
+                      final bool isPending = _pendingUpdates.contains(docId);
+
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: colorTarjeta,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: isPending ? Colors.blueAccent : (isDark ? Colors.white12 : Colors.white), width: isPending ? 2 : 1.5),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 8))],
                         ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                      itemCount: docs.length,
-                      itemBuilder: (context, index) {
-                        final data = docs[index].data() as Map<String, dynamic>;
-                        final String docId = docs[index].id;
-                        final bool isPro = data['isPro'] ?? false;
-                        final String email = data['email'] ?? 'Sin correo';
-                        final String nombre = data['nombre'] ?? 'Sin nombre';
-                        final bool isPending = _pendingUpdates.contains(docId);
-
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.only(bottom: 14),
-                          decoration: BoxDecoration(
-                            color: colorTarjeta,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: isPending ? Colors.blueAccent : (isDark ? Colors.white12 : Colors.white), width: isPending ? 2 : 1.5),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 8))],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: ListTile(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                 leading: CircleAvatar(
                                   radius: 26,
@@ -206,20 +187,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     );
                   },
                 ),
-              ),
-            ],
+            ),
           ),
         );
       },
     );
-  }
-}
-
-class _LuzFondo extends StatelessWidget {
-  final Color color;
-  const _LuzFondo({required this.color});
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 400, height: 400, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
   }
 }

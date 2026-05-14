@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:ui';
-import 'dart:math' as math;
 import 'login_screen.dart';
 import 'register_screen.dart';
-import '../main.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
+import '../widgets/glass_layout.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -15,20 +16,17 @@ class LandingScreen extends StatefulWidget {
 
 class _LandingScreenState extends State<LandingScreen> with TickerProviderStateMixin {
   late AnimationController _entryController;
-  late AnimationController _bgController;
   bool _ctaLoading = false; 
 
   @override
   void initState() {
     super.initState();
     _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..forward();
-    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 25))..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _entryController.dispose();
-    _bgController.dispose();
     super.dispose();
   }
 
@@ -46,12 +44,11 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
     final isMobile = screenWidth < 800;
     final isLargeDesktop = screenWidth >= 1200;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: isDarkModeGlobal,
-      builder: (context, isDark, _) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDarkMode;
         final colorTexto = isDark ? Colors.white : const Color(0xFF1E293B);
         final colorTextoSec = isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade700;
-        final colorTarjeta = isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.7);
 
         return Scaffold(
           extendBodyBehindAppBar: true,
@@ -90,28 +87,25 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
               ),
             ],
           ),
-          body: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-                    child: Stack(
-                      children: [
-                        Positioned(top: -100 + (math.sin(_bgController.value * math.pi * 2) * 100), left: -50 + (math.cos(_bgController.value * math.pi) * 80), child: _LuzFondo(color: Colors.blueAccent.withOpacity(isDark ? 0.3 : 0.15))),
-                        Positioned(bottom: -150 + (math.cos(_bgController.value * math.pi * 2) * 120), right: -100 + (math.sin(_bgController.value * math.pi) * 80), child: _LuzFondo(color: Colors.purpleAccent.withOpacity(isDark ? 0.2 : 0.1))),
-                      ],
-                    ),
-                  );
-                }
-              ),
-              BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
-              
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                  child: SafeArea(
+          body: GlassLayout(
+            sphereSize: 600,
+            sphere1: const SphereStyle(
+              color: Colors.blueAccent,
+              darkOpacity: 0.3,
+              lightOpacity: 0.15,
+              horizontalAmplitude: 80,
+              verticalAmplitude: 100,
+            ),
+            sphere2: const SphereStyle(
+              color: Colors.purpleAccent,
+              darkOpacity: 0.2,
+              lightOpacity: 0.1,
+              horizontalAmplitude: 80,
+              verticalAmplitude: 120,
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              child: SafeArea(
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1200),
@@ -196,9 +190,7 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -209,15 +201,6 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
 // ──────────────────────────────────────────────────────────────────────────────
 // WIDGETS PRIVADOS
 // ──────────────────────────────────────────────────────────────────────────────
-
-class _LuzFondo extends StatelessWidget {
-  final Color color;
-  const _LuzFondo({required this.color});
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 600, height: 600, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
-  }
-}
 
 class _FadeSlide extends StatelessWidget {
   final AnimationController controller;
