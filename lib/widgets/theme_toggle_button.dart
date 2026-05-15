@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../constants.dart';
 
-/// Botón de toggle de tema reutilizable.
 class ThemeToggleButton extends StatelessWidget {
   final bool showLabel;
 
@@ -10,8 +10,7 @@ class ThemeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Detectamos si es celular para achicar este botón en específico
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final isMobile = context.isMobileWidth;
 
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {

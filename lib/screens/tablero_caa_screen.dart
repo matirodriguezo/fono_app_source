@@ -11,6 +11,7 @@ import 'admin_panel_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/animated_gradient_background.dart';
 import '../widgets/theme_toggle_button.dart';
+import '../constants.dart';
 
 class TableroCAAScreen extends StatefulWidget {
   const TableroCAAScreen({super.key});
@@ -216,10 +217,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     });
     
     // Calculamos si es móvil para el auto-scroll
-    final size = MediaQuery.of(context).size;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final isMobile = size.shortestSide < 650 || size.height < 600;
-    final isMobileLandscape = isMobile && isLandscape && size.height < 500;
+    final isMobile = context.isMobileScreen;
+    final isMobileLandscape = context.isMobileLandscape;
     final double anchoTarjeta = isMobileLandscape ? 49.0 : (isMobile ? 61.0 : 110.0);
 
     final palabras = _oracionActual.map((p) => p.palabra).toList();
@@ -276,22 +275,91 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         ),
         content: SizedBox(
           width: double.maxFinite,
-          height: MediaQuery.of(context).size.height * 0.45, 
-          child: voces.isEmpty
-              ? Center(
-                  child: Text(
-                    'Buscando voces...\n\n(Si la lista sigue vacía, tu navegador no permite leer las voces instaladas)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, height: 1.5),
+          height: MediaQuery.of(context).size.height * 0.5, 
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            children: [
+              if (_motorVoz.webSpeechDisponible)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _motorVoz.usandoWebSpeech
+                        ? Colors.green.withOpacity(0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _motorVoz.usandoWebSpeech
+                          ? Colors.green.withOpacity(0.4)
+                          : (isDark ? Colors.white10 : Colors.grey.shade200),
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: voces.length,
-                  itemBuilder: (context, index) {
-                    final voz = voces[index];
+                  child: Row(
+                    children: [
+                      Icon(
+                        _motorVoz.usandoWebSpeech
+                            ? Icons.check_circle
+                            : Icons.language,
+                        color: _motorVoz.usandoWebSpeech
+                            ? Colors.green
+                            : (isDark ? Colors.white54 : Colors.grey),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Motor nativo del navegador',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'Recomendado si las voces no aparecen',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white38 : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _motorVoz.usandoWebSpeech,
+                        activeColor: Colors.green,
+                        onChanged: (v) {
+                          setState(() {
+                            _motorVoz.setUsarWebSpeech(v);
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ...voces.isEmpty
+                  ? [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: Text(
+                            _motorVoz.usandoWebSpeech
+                                ? 'No se encontraron voces en español'
+                                : 'Buscando voces...\n\n(Si la lista sigue vacía, activa el motor nativo arriba)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, height: 1.5),
+                          ),
+                        ),
+                      ),
+                    ]
+                  : voces.asMap().entries.map((entry) {
+                    final voz = entry.value;
                     final locale = voz['locale'] ?? '';
-                    final nombreStr = voz['name'] ?? 'Voz ${index + 1}';
+                    final nombreStr = voz['name'] ?? 'Voz ${entry.key + 1}';
                     
                     final esActual = _motorVoz.vozActual?['name'] == voz['name'];
                     
@@ -334,14 +402,15 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                         onTap: () async {
                           HapticFeedback.lightImpact();
                           await _motorVoz.cambiarVoz(voz);
-                          await _motorVoz.hablar("Hola");
-                          setState(() {}); 
+                          await _motorVoz.hablar("Voz seleccionada: ${voz['name']}. Hola.");
+                          setState(() {});
                           Navigator.pop(ctx);
                         },
                       ),
                     );
-                  },
-                ),
+                  }).toList(),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -505,10 +574,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final isMobile = size.shortestSide < 650 || size.height < 600;
-    final isMobileLandscape = isMobile && isLandscape && size.height < 500;
+    final isMobile = context.isMobileScreen;
+    final isMobileLandscape = context.isMobileLandscape;
 
     final userProvider = context.watch<UserProvider>();
 

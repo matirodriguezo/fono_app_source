@@ -1,36 +1,53 @@
 import 'package:flutter_tts/flutter_tts.dart';
+import 'web_speech.dart';
 
 class TtsService {
   final FlutterTts _flutterTts = FlutterTts();
-  
-  // 1. GESTIÓN DE COLA
-  final List<String> _colaPalabras = [];
-  bool _procesandoCola = false;
-  
-  // 2. MUTEX (Candado de Hardware): Evita colisiones en el puente nativo.
-  bool _motorOcupado = false; 
-
-  // 3. TOKEN DE CANCELACIÓN: Identificador único por cada evento de habla.
-  int _sesionId = 0; 
+  bool _usarWebSpeech = false;
 
   List<Map<String, String>> vocesDisponibles = [];
   Map<String, String>? vozActual;
+
+  final List<String> _colaPalabras = [];
+  bool _procesandoCola = false;
+  bool _motorOcupado = false;
+  int _sesionId = 0;
+
+  bool get usandoWebSpeech => _usarWebSpeech && WebTts.isAvailable;
+  bool get webSpeechDisponible => WebTts.isAvailable;
 
   TtsService() {
     _configurarMotor();
   }
 
+  void setUsarWebSpeech(bool value) {
+    if (value && !WebTts.isAvailable) return;
+    detener();
+    _usarWebSpeech = value;
+    if (value) {
+      WebTts.initVoices(() {
+        vocesDisponibles = WebTts.getVoices();
+        if (vocesDisponibles.isNotEmpty) {
+          vozActual = vocesDisponibles.first;
+        }
+      });
+      vocesDisponibles = WebTts.getVoices();
+      if (vocesDisponibles.isNotEmpty) {
+        vozActual = vocesDisponibles.first;
+      }
+    } else {
+      _cargarVocesLocales();
+    }
+  }
+
   Future<void> _configurarMotor() async {
     await _flutterTts.setLanguage("es-ES");
-    await _flutterTts.setSpeechRate(0.85); 
+    await _flutterTts.setSpeechRate(0.85);
     await _flutterTts.setVolume(1.2);
     await _flutterTts.setPitch(1.0);
-    // CRÍTICO: Obliga a Flutter a esperar la finalización del audio
     await _flutterTts.awaitSpeakCompletion(true);
-    
-    // Handlers de limpieza en caso de que el navegador aborte la operación
+
     _flutterTts.setErrorHandler((msg) {
-      print("TTS Error Nativo: $msg");
       _liberarRecursos();
     });
     _flutterTts.setCancelHandler(() {
@@ -40,7 +57,6 @@ class TtsService {
     await _cargarVocesLocales();
   }
 
-  // Limpieza segura de estados
   void _liberarRecursos() {
     _procesandoCola = false;
     _motorOcupado = false;
@@ -63,89 +79,98 @@ class TtsService {
           vozActual = vocesDisponibles.first;
         }
       }
-    } catch (e) {
-      print("Error cargando voces locales: $e");
-    }
+    } catch (_) {}
   }
 
   Future<void> cambiarVoz(Map<String, String> voz) async {
+    if (usandoWebSpeech) {
+      vozActual = voz;
+      return;
+    }
     try {
       await _flutterTts.setVoice({"name": voz['name']!, "locale": voz['locale']!});
       vozActual = voz;
-    } catch (e) {
-      print("Error al cambiar la voz: $e");
-    }
+    } catch (_) {}
   }
 
   Future<bool> hablar(String texto) async {
     if (texto.trim().isEmpty) return false;
-    await detener(); 
+    await detener();
+    if (usandoWebSpeech) {
+      return WebTts.speak(texto, voice: vozActual, rate: 0.85);
+    }
     try {
       _motorOcupado = true;
       await _flutterTts.speak(texto).timeout(
-        const Duration(seconds: 15), 
+        const Duration(seconds: 15),
         onTimeout: () => null,
       );
-      return true; 
-    } catch (e) {
-      print("Error en el motor de voz: $e");
+      return true;
+    } catch (_) {
       return false;
     } finally {
-      _motorOcupado = false; // Always libera el Mutex
+      _motorOcupado = false;
     }
   }
 
-  // MÉTODO BLINDADO PARA WEB (Lectura palabra por palabra guiada)
   Future<bool> hablarOracion(List<String> palabras, void Function(int) onProgress) async {
     if (palabras.isEmpty) return false;
-    
-    // Freno de emergencia previo
+
+    if (usandoWebSpeech) {
+      _sesionId++;
+      final int miToken = _sesionId;
+      try {
+        for (int i = 0; i < palabras.length; i++) {
+          if (_sesionId != miToken) break;
+          onProgress(i);
+          final ok = await WebTts.speak(palabras[i], voice: vozActual, rate: 0.85).timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => false,
+          );
+          if (!ok) break;
+          if (_sesionId != miToken) break;
+          await Future.delayed(const Duration(milliseconds: 120));
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
     await detener();
-    
-    // Generamos el Token Inmutable para ESTA ejecución exacta
     _sesionId++;
     final int miToken = _sesionId;
 
     try {
       for (int i = 0; i < palabras.length; i++) {
-        // CHEQUEO 1: Antes de mover la interfaz gráfica
         if (_sesionId != miToken) break;
+        onProgress(i);
 
-        onProgress(i); // Enciende la tarjeta 'i'
-        
-        // Esperamos activamente si el motor quedó enganchado procesando algo anterior
         int intentosDeEspera = 0;
         while (_motorOcupado && intentosDeEspera < 10) {
           await Future.delayed(const Duration(milliseconds: 50));
           intentosDeEspera++;
         }
 
-        // CHEQUEO 2: Antes de enviar la instrucción al navegador
         if (_sesionId != miToken) break;
-        
         _motorOcupado = true;
         await _flutterTts.speak(palabras[i]).timeout(
-          const Duration(seconds: 4), 
+          const Duration(seconds: 4),
           onTimeout: () => null,
         );
-        _motorOcupado = false; // Liberamos el puente
-        
-        // CHEQUEO 3: Después de que el audio terminó
+        _motorOcupado = false;
+
         if (_sesionId != miToken) break;
-        
-        // Micro-pausa clínica
         await Future.delayed(const Duration(milliseconds: 150));
       }
-      return true; 
-    } catch (e) {
-      print("Error crítico leyendo oración: $e");
+      return true;
+    } catch (_) {
       return false;
     } finally {
-      _motorOcupado = false; // Garantiza no dejar deadlocks
+      _motorOcupado = false;
     }
   }
 
-  // Gestión de Cola Blindada
   Future<void> encolarPalabra(String palabra) async {
     if (palabra.trim().isEmpty) return;
     _colaPalabras.add(palabra);
@@ -153,18 +178,22 @@ class TtsService {
   }
 
   Future<void> _procesarCola() async {
-    if (_procesandoCola) return; 
+    if (_procesandoCola) return;
     _procesandoCola = true;
 
     _sesionId++;
     final int miToken = _sesionId;
 
     while (_colaPalabras.isNotEmpty) {
-      // Chequeo de token para palabras individuales
       if (_sesionId != miToken) break;
 
       final texto = _colaPalabras.removeAt(0);
-      
+
+      if (usandoWebSpeech) {
+        await WebTts.speak(texto, voice: vozActual, rate: 0.85);
+        continue;
+      }
+
       try {
         int intentosDeEspera = 0;
         while (_motorOcupado && intentosDeEspera < 10) {
@@ -176,11 +205,10 @@ class TtsService {
 
         _motorOcupado = true;
         await _flutterTts.speak(texto).timeout(
-          const Duration(seconds: 3), 
+          const Duration(seconds: 3),
           onTimeout: () => null,
         );
-      } catch (e) {
-        print("Error al hablar palabra en cola: $e");
+      } catch (_) {
       } finally {
         _motorOcupado = false;
       }
@@ -188,27 +216,23 @@ class TtsService {
     _procesandoCola = false;
   }
 
-  // APAGADO RADICAL (Hard Stop)
   Future<void> detener() async {
-    // 1. Invalidar cualquier token activo inmediatamente
-    _sesionId++; 
-    
-    // 2. Limpiar memoria de cola
+    _sesionId++;
     _colaPalabras.clear();
-    _procesandoCola = false; 
-    
-    // 3. Orden nativa de apagado
+    _procesandoCola = false;
+
+    if (usandoWebSpeech) {
+      WebTts.cancel();
+      _motorOcupado = false;
+      return;
+    }
+
     try {
       await _flutterTts.stop();
-    } catch (e) {
-      print("Error al detener TTS: $e");
+    } catch (_) {
     } finally {
-      // Forzamos la liberación del Mutex
-      _motorOcupado = false; 
+      _motorOcupado = false;
     }
-    
-    // 4. Pausa de hardware: Le damos 150ms al navegador para limpiar su memoria 
-    // interna de Javascript antes de dejar pasar la siguiente orden de Dart.
     await Future.delayed(const Duration(milliseconds: 150));
   }
 }

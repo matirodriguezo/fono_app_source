@@ -6,7 +6,6 @@ import 'register_screen.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 

@@ -5,6 +5,7 @@ import 'dart:ui';
 import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
+import '../widgets/shimmer_loading.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -103,7 +104,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 stream: FirebaseFirestore.instance.collection('usuarios').orderBy('fechaRegistro', descending: true).snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) return Center(child: Text('Error al cargar datos', style: TextStyle(color: colorTexto)));
-                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  if (snapshot.connectionState == ConnectionState.waiting) return const SkeletonAdminList();
                   final docs = snapshot.data!.docs;
 
                   if (docs.isEmpty) {

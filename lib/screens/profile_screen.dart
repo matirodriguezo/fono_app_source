@@ -6,6 +6,7 @@ import 'dart:ui';
 import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
+import '../widgets/shimmer_loading.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -137,7 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection('usuarios').doc(user.uid).snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) return const SkeletonProfileCard();
                 final data = snapshot.data?.data() as Map<String, dynamic>?;
                 final String nombre = data?['nombre'] ?? 'Usuario';
                 final bool isPro = data?['isPro'] ?? false;

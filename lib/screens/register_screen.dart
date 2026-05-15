@@ -6,7 +6,6 @@ import 'dart:ui';
 import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
-
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 

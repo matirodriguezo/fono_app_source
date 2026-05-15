@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'login_screen.dart';
 import 'register_screen.dart';
 import '../providers/theme_provider.dart';
+import '../constants.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
 
@@ -40,9 +41,8 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 800;
-    final isLargeDesktop = screenWidth >= 1200;
+    final isMobile = context.isMobileWidth;
+    final isLargeDesktop = context.isDesktopWidth;
 
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
@@ -62,7 +62,7 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                 children: [
                   Icon(Icons.record_voice_over, color: Colors.blueAccent, size: isMobile ? 24 : 28),
                   const SizedBox(width: 8),
-                  if (screenWidth >= 380) Text('FonoApp', style: TextStyle(fontWeight: FontWeight.w900, color: colorTexto, fontSize: isMobile ? 18 : 22, letterSpacing: -0.5)),
+                  if (MediaQuery.of(context).size.width >= 380) Text('FonoApp', style: TextStyle(fontWeight: FontWeight.w900, color: colorTexto, fontSize: isMobile ? 18 : 22, letterSpacing: -0.5)),
                 ],
               ),
             ),
@@ -348,7 +348,7 @@ class _BotonFlotanteMagicoState extends State<_BotonFlotanteMagico> {
   bool _isHovered = false;
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final isMobile = context.isMobileWidth;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
