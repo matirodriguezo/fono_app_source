@@ -845,69 +845,13 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
             ),
           ],
         ),
-        GestureDetector(
+        _BotonHablarUltra(
+          isSpeaking: _isSpeaking,
+          canSpeak: canSpeak,
+          isDark: isDark,
+          isMobile: isMobile,
+          isMobileLandscape: isMobileLandscape,
           onTap: _isSpeaking ? null : _reproducirOracion,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 280),
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobileLandscape ? 8 : (isMobile ? 12 : 22), 
-              vertical: isMobileLandscape ? 4 : (isMobile ? 8 : 16)
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isSpeaking
-                    ? [Colors.green.shade400, Colors.green.shade600]
-                    : canSpeak
-                        ? [Colors.blue.shade400, Colors.blue.shade700]
-                        : (isDark
-                            ? [Colors.white10, Colors.white12]
-                            : [Colors.grey.shade300, Colors.grey.shade400]),
-              ),
-              borderRadius: BorderRadius.circular(isMobileLandscape ? 12 : (isMobile ? 18 : 28)),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.4),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: _isSpeaking
-                      ? SizedBox(
-                          key: const ValueKey('speaking'),
-                          width: isMobileLandscape ? 12 : (isMobile ? 16 : 28),
-                          height: isMobileLandscape ? 12 : (isMobile ? 16 : 28),
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Icon(
-                          Icons.play_arrow_rounded,
-                          key: const ValueKey('play'),
-                          color: canSpeak
-                              ? Colors.white
-                              : (isDark ? Colors.white30 : Colors.grey.shade600),
-                          size: isMobileLandscape ? 16 : (isMobile ? 20 : 30),
-                        ),
-                ),
-                SizedBox(width: isMobileLandscape ? 2 : (isMobile ? 4 : 6)),
-                Text(
-                  _isSpeaking ? 'HABLANDO' : 'HABLAR',
-                  style: TextStyle(
-                    fontSize: isMobileLandscape ? 9 : (isMobile ? 11 : 16),
-                    fontWeight: FontWeight.w900,
-                    color: (canSpeak || _isSpeaking)
-                        ? Colors.white
-                        : (isDark ? Colors.white30 : Colors.grey.shade600),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -1710,6 +1654,132 @@ class _TarjetaSquish3DState extends State<TarjetaSquish3D>
   }
 }
 
+class _BotonHablarUltra extends StatefulWidget {
+  final bool isSpeaking;
+  final bool canSpeak;
+  final bool isDark;
+  final bool isMobile;
+  final bool isMobileLandscape;
+  final VoidCallback? onTap;
+
+  const _BotonHablarUltra({
+    required this.isSpeaking,
+    required this.canSpeak,
+    required this.isDark,
+    required this.isMobile,
+    required this.isMobileLandscape,
+    this.onTap,
+  });
+
+  @override
+  State<_BotonHablarUltra> createState() => _BotonHablarUltraState();
+}
+
+class _BotonHablarUltraState extends State<_BotonHablarUltra> {
+  bool _isPressed = false;
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (widget.onTap != null) setState(() => _isHovered = true);
+      },
+      onExit: (_) => setState(() {
+        _isHovered = false;
+        _isPressed = false;
+      }),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onTapDown: widget.onTap != null ? (_) {
+          HapticFeedback.lightImpact();
+          setState(() => _isPressed = true);
+        } : null,
+        onTapUp: widget.onTap != null ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutBack,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isMobileLandscape ? 8 : (widget.isMobile ? 12 : 22),
+              vertical: widget.isMobileLandscape ? 4 : (widget.isMobile ? 8 : 16),
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: widget.isSpeaking
+                    ? [Colors.green.shade400, Colors.green.shade600]
+                    : widget.canSpeak
+                        ? (_isHovered
+                            ? [Colors.blue.shade300, Colors.blue.shade500]
+                            : [Colors.blue.shade400, Colors.blue.shade700])
+                        : (widget.isDark
+                            ? [Colors.white10, Colors.white12]
+                            : [Colors.grey.shade300, Colors.grey.shade400]),
+              ),
+              borderRadius: BorderRadius.circular(
+                  widget.isMobileLandscape ? 12 : (widget.isMobile ? 18 : 28)),
+              border: Border.all(
+                color: Colors.white.withOpacity(_isHovered ? 0.7 : 0.4),
+                width: _isHovered ? 2 : 1.5,
+              ),
+              boxShadow: [
+                if (widget.canSpeak && !widget.isSpeaking)
+                  BoxShadow(
+                    color: Colors.blueAccent.withOpacity(_isHovered ? 0.45 : 0.25),
+                    blurRadius: _isHovered ? 20 : 10,
+                    offset: Offset(0, _isHovered ? 8 : 4),
+                  ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: widget.isSpeaking
+                      ? SizedBox(
+                          key: const ValueKey('speaking'),
+                          width: widget.isMobileLandscape ? 12 : (widget.isMobile ? 16 : 28),
+                          height: widget.isMobileLandscape ? 12 : (widget.isMobile ? 16 : 28),
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Icon(
+                          Icons.play_arrow_rounded,
+                          key: const ValueKey('play'),
+                          color: widget.canSpeak
+                              ? Colors.white
+                              : (widget.isDark ? Colors.white30 : Colors.grey.shade600),
+                          size: widget.isMobileLandscape ? 16 : (widget.isMobile ? 20 : 30),
+                        ),
+                ),
+                SizedBox(width: widget.isMobileLandscape ? 2 : (widget.isMobile ? 4 : 6)),
+                Text(
+                  widget.isSpeaking ? 'HABLANDO' : 'HABLAR',
+                  style: TextStyle(
+                    fontSize: widget.isMobileLandscape ? 9 : (widget.isMobile ? 11 : 16),
+                    fontWeight: FontWeight.w900,
+                    color: (widget.canSpeak || widget.isSpeaking)
+                        ? Colors.white
+                        : (widget.isDark ? Colors.white30 : Colors.grey.shade600),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BotonControlUltra extends StatefulWidget {
   final IconData icono;
   final Color color;
@@ -1733,36 +1803,53 @@ class _BotonControlUltra extends StatefulWidget {
 
 class _BotonControlUltraState extends State<_BotonControlUltra> {
   bool _isPressed = false;
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedScale(
-        scale: _isPressed ? 0.82 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
-          height: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
-          decoration: BoxDecoration(
-            color: widget.isDark ? Colors.white10 : Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-                color: widget.color.withOpacity(0.45), width: widget.isMobile ? 1.5 : 2),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              )
-            ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: (_) {
+          HapticFeedback.lightImpact();
+          setState(() => _isPressed = true);
+        },
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.82 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutBack,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
+            height: widget.isMobileLandscape ? 30 : (widget.isMobile ? 36 : 52),
+            decoration: BoxDecoration(
+              color: _isPressed
+                  ? widget.color.withOpacity(0.2)
+                  : (widget.isDark ? Colors.white10 : Colors.white),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _isHovered
+                    ? widget.color.withOpacity(0.8)
+                    : widget.color.withOpacity(0.45),
+                width: _isHovered ? 2.5 : (widget.isMobile ? 1.5 : 2),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.color.withOpacity(_isHovered ? 0.35 : 0.15),
+                  blurRadius: _isHovered ? 14 : 8,
+                  offset: Offset(0, _isHovered ? 6 : 4),
+                ),
+              ],
+            ),
+            child: Icon(widget.icono, color: widget.color, size: widget.isMobileLandscape ? 15 : (widget.isMobile ? 18 : 26)),
           ),
-          child: Icon(widget.icono, color: widget.color, size: widget.isMobileLandscape ? 15 : (widget.isMobile ? 18 : 26)),
         ),
       ),
     );

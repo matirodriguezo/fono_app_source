@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/connectivity_provider.dart';
+import 'widgets/offline_banner.dart';
 import 'screens/auth_gate.dart';
 
 void main() async {
@@ -32,6 +34,7 @@ class FonoApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
@@ -75,6 +78,14 @@ class FonoApp extends StatelessWidget {
             ),
             home: const AuthGate(),
             debugShowCheckedModeBanner: false,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  child!,
+                  const OfflineBanner(),
+                ],
+              );
+            },
           );
         },
       ),
