@@ -11,6 +11,7 @@ import 'admin_panel_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/animated_gradient_background.dart';
 import '../widgets/theme_toggle_button.dart';
+import '../widgets/tutorial_overlay.dart';
 import '../constants.dart';
 
 class TableroCAAScreen extends StatefulWidget {
@@ -33,6 +34,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   late AnimationController _gridIntroController;
   final ScrollController _scrollController = ScrollController();
+  static const _tutorialPrefKey = 'tutorial_completado';
 
   @override
   void initState() {
@@ -49,6 +51,11 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _cargarOracionGuardada();
       _precachePantallaActual();
+      final prefs = await SharedPreferences.getInstance();
+      final visto = prefs.getBool(_tutorialPrefKey) ?? false;
+      if (!visto && mounted) {
+        await mostrarTutorial(context, _pasosTutorial, _completarTutorial);
+      }
     });
   }
 
@@ -570,6 +577,35 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         ],
       ),
     );
+  }
+
+  final List<TutorialStep> _pasosTutorial = const [
+    TutorialStep(
+      title: 'Arma tu frase',
+      description: 'Los pictogramas que toques se acumulan aqui arriba. Despues escuchalos juntos.',
+      icon: Icons.auto_awesome_mosaic_rounded,
+    ),
+    TutorialStep(
+      title: 'Elige cada palabra',
+      description: 'Cada tarjeta es una palabra. Toca las que quieras para construir tu oracion.',
+      icon: Icons.grid_view_rounded,
+    ),
+    TutorialStep(
+      title: 'Dale play',
+      description: 'Cuando tu frase este lista toca este boton para escucharla en voz alta.',
+      icon: Icons.play_circle_rounded,
+    ),
+    TutorialStep(
+      title: 'Explora categorias',
+      description: 'Las carpetas con candado son contenido PRO. Puedes solicitarlas con la administradora.',
+      icon: Icons.folder_special_rounded,
+    ),
+  ];
+
+  void _completarTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_tutorialPrefKey, true);
+    if (mounted) HapticFeedback.mediumImpact();
   }
 
   @override
