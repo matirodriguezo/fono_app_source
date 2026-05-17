@@ -35,4 +35,6 @@ flutter:
     - assets/images/ACCIONES/
     - assets/images/PERSONAS/
     - assets/images/SALUDOS/
+    - assets/images/EMOCIONES/
+    - assets/images/NECESIDAD/
     - assets/images/demo/
