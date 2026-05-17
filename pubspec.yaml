@@ -18,6 +18,8 @@ dependencies:
   shared_preferences: ^2.2.2
   provider: ^6.1.2
   connectivity_plus: ^7.1.1
+  video_player: ^2.8.3
+
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +35,4 @@ flutter:
     - assets/images/ACCIONES/
     - assets/images/PERSONAS/
     - assets/images/SALUDOS/
+    - assets/images/demo/

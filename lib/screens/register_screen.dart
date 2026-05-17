@@ -289,44 +289,51 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                               ),
                               const SizedBox(height: 40),
 
-                              _isLoading
-                                  ? const CircularProgressIndicator(color: Colors.tealAccent)
-                                  : MouseRegion(
-                                      onEnter: (_) => setState(() => _isButtonHovered = true),
-                                      onExit: (_) => setState(() => _isButtonHovered = false),
-                                      child: GestureDetector(
-                                        onTapDown: (_) => setState(() => _isButtonPressed = true),
-                                        onTapUp: (_) {
-                                          setState(() => _isButtonPressed = false);
-                                          _crearCuenta();
-                                        },
-                                        onTapCancel: () => setState(() => _isButtonPressed = false),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 150),
-                                          width: double.infinity,
-                                          height: 60,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(20),
-                                            gradient: LinearGradient(
-                                              colors: _isButtonHovered
-                                                  ? [Colors.tealAccent.shade400, Colors.teal.shade400]
-                                                  : [Colors.teal.shade400, Colors.teal.shade700],
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.tealAccent.withOpacity(_isButtonHovered ? 0.6 : 0.3),
-                                                blurRadius: _isButtonHovered ? 20 : 10,
-                                                offset: Offset(0, _isButtonPressed ? 2 : 6),
-                                              )
-                                            ],
-                                          ),
-                                          transform: Matrix4.translationValues(0, _isButtonPressed ? 4 : 0, 0),
-                                          child: const Center(
-                                            child: Text('REGISTRARSE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
-                                          ),
-                                        ),
+                              MouseRegion(
+                                onEnter: (_) => setState(() => _isButtonHovered = true),
+                                onExit: (_) => setState(() => _isButtonHovered = false),
+                                child: GestureDetector(
+                                  onTapDown: _isLoading ? null : (_) => setState(() => _isButtonPressed = true),
+                                  onTapUp: _isLoading ? null : (_) {
+                                    setState(() => _isButtonPressed = false);
+                                    _crearCuenta();
+                                  },
+                                  onTapCancel: () => setState(() => _isButtonPressed = false),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    width: double.infinity,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      gradient: LinearGradient(
+                                        colors: _isButtonHovered && !_isLoading
+                                            ? [Colors.tealAccent.shade400, Colors.teal.shade400]
+                                            : [Colors.teal.shade400, Colors.teal.shade700],
                                       ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.tealAccent.withOpacity(_isButtonHovered && !_isLoading ? 0.6 : 0.3),
+                                          blurRadius: _isButtonHovered && !_isLoading ? 20 : 10,
+                                          offset: Offset(0, _isButtonPressed ? 2 : 6),
+                                        )
+                                      ],
                                     ),
+                                    transform: Matrix4.translationValues(0, _isButtonPressed ? 4 : 0, 0),
+                                    child: Center(
+                                      child: _isLoading
+                                          ? const SizedBox(
+                                              width: 26,
+                                              height: 26,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2.5,
+                                              ),
+                                            )
+                                          : const Text('REGISTRARSE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 24),
 
                               if (!_isLoading)

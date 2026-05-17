@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/shimmer_loading.dart';
 import 'landing_screen.dart';
-import 'tablero_caa_screen.dart';
+import 'welcome_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -18,7 +18,7 @@ class AuthGate extends StatelessWidget {
         if (!userProvider.isLoggedIn) {
           return const LandingScreen();
         }
-        return const TableroCAAScreen();
+        return const WelcomeScreen();
       },
     );
   }

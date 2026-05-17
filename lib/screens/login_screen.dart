@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
-import 'register_screen.dart'; 
+import 'register_screen.dart';
+import 'welcome_screen.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../widgets/glass_layout.dart';
@@ -69,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      if (mounted) Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const WelcomeScreen()), (_) => false);
     } on FirebaseAuthException {
       _mostrarError('Error al entrar: Credenciales incorrectas.');
     } finally {
@@ -203,47 +204,54 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             const SizedBox(height: 40),
                             
                             // BOTÓN ENTRAR ANIMADO
-                            _isLoading 
-                              ? const CircularProgressIndicator(color: Colors.blueAccent)
-                              : MouseRegion(
-                                  onEnter: (_) => setState(() => _isButtonHovered = true),
-                                  onExit: (_) => setState(() => _isButtonHovered = false),
-                                  child: GestureDetector(
-                                    onTapDown: (_) => setState(() => _isButtonPressed = true),
-                                    onTapUp: (_) {
-                                      setState(() => _isButtonPressed = false);
-                                      _iniciarSesion();
-                                    },
-                                    onTapCancel: () => setState(() => _isButtonPressed = false),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 150),
-                                      width: double.infinity,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(20),
-                                        gradient: LinearGradient(
-                                          colors: _isButtonHovered
-                                              ? [Colors.blueAccent.shade200, Colors.blueAccent.shade400]
-                                              : [Colors.blueAccent.shade400, Colors.blueAccent.shade700],
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.blueAccent.withOpacity(_isButtonHovered ? 0.6 : 0.3),
-                                            blurRadius: _isButtonHovered ? 20 : 10,
-                                            offset: Offset(0, _isButtonPressed ? 2 : 6),
-                                          )
-                                        ],
-                                      ),
-                                      transform: Matrix4.translationValues(0, _isButtonPressed ? 4 : 0, 0),
-                                      child: const Center(
-                                        child: Text(
-                                          'ENTRAR', 
-                                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
-                                        ),
-                                      ),
+                            MouseRegion(
+                              onEnter: (_) => setState(() => _isButtonHovered = true),
+                              onExit: (_) => setState(() => _isButtonHovered = false),
+                              child: GestureDetector(
+                                onTapDown: _isLoading ? null : (_) => setState(() => _isButtonPressed = true),
+                                onTapUp: _isLoading ? null : (_) {
+                                  setState(() => _isButtonPressed = false);
+                                  _iniciarSesion();
+                                },
+                                onTapCancel: () => setState(() => _isButtonPressed = false),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: double.infinity,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    gradient: LinearGradient(
+                                      colors: _isButtonHovered && !_isLoading
+                                          ? [Colors.blueAccent.shade200, Colors.blueAccent.shade400]
+                                          : [Colors.blueAccent.shade400, Colors.blueAccent.shade700],
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.blueAccent.withOpacity(_isButtonHovered && !_isLoading ? 0.6 : 0.3),
+                                        blurRadius: _isButtonHovered && !_isLoading ? 20 : 10,
+                                        offset: Offset(0, _isButtonPressed ? 2 : 6),
+                                      )
+                                    ],
+                                  ),
+                                  transform: Matrix4.translationValues(0, _isButtonPressed ? 4 : 0, 0),
+                                  child: Center(
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 26,
+                                            height: 26,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2.5,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'ENTRAR',
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5),
+                                          ),
                                   ),
                                 ),
+                              ),
+                            ),
                             
                             const SizedBox(height: 24),
                             

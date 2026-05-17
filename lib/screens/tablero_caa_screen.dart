@@ -24,17 +24,21 @@ class TableroCAAScreen extends StatefulWidget {
 class _TableroCAAScreenState extends State<TableroCAAScreen>
     with SingleTickerProviderStateMixin {
   final List<Pictograma> _oracionActual = [];
-  late final List<CarpetaCAA> _carpetas;
-  late final List<Pictograma> _palabrasFrecuentes;
+  late List<CarpetaCAA> _carpetas;
+  late List<Pictograma> _palabrasFrecuentes;
   CarpetaCAA? _carpetaActual;
+  List<Pictograma> _pictogramasCarpeta = [];
 
   final TtsService _motorVoz = TtsService();
   bool _isSpeaking = false; 
-  int? _indiceDestacado; // NUEVO: Controla qué tarjeta brilla
+  int? _indiceDestacado;
 
   late AnimationController _gridIntroController;
   final ScrollController _scrollController = ScrollController();
   static const _tutorialPrefKey = 'tutorial_completado';
+
+  bool _isReordering = false;
+  int? _draggedIndex;
 
   @override
   void initState() {
@@ -49,6 +53,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
     _gridIntroController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _cargarOrden();
+      if (mounted) setState(() {});
       await _cargarOracionGuardada();
       _precachePantallaActual();
       final prefs = await SharedPreferences.getInstance();
@@ -128,7 +134,11 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       return;
     }
     HapticFeedback.mediumImpact();
-    setState(() => _carpetaActual = carpeta);
+    setState(() {
+      _carpetaActual = carpeta;
+      _pictogramasCarpeta = List.from(carpeta.pictogramas);
+    });
+    _cargarOrdenCarpeta(carpeta.nombre);
     _gridIntroController.reset();
     _gridIntroController.forward();
     _precacheImagenes(carpeta.pictogramas);
@@ -136,10 +146,204 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   void _volverACarpetas() {
     HapticFeedback.lightImpact();
-    setState(() => _carpetaActual = null);
+    setState(() {
+      _carpetaActual = null;
+      _pictogramasCarpeta = [];
+    });
     _gridIntroController.reset();
     _gridIntroController.forward();
     _precachePantallaActual();
+  }
+
+  void _toggleReorder() {
+    if (_isReordering) {
+      _guardarOrden();
+    }
+    setState(() {
+      _isReordering = !_isReordering;
+      _draggedIndex = null;
+    });
+    if (_isReordering && context.mounted) {
+      _mostrarAvisoReordenar(context);
+    }
+  }
+
+  void _mostrarAvisoReordenar(BuildContext ctx) {
+    OverlayEntry entry = OverlayEntry(
+      builder: (context) => Material(
+        color: Colors.transparent,
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Opacity(
+                  opacity: value.clamp(0.0, 1.0),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF6366F1).withOpacity(0.4),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.touch_app, size: 36, color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Modo Ordenar',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Manten presionada una tarjeta\npara arrastrarla a otra posición',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                            color: Colors.white.withOpacity(0.9),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(ctx).insert(entry);
+    Future.delayed(const Duration(seconds: 4), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
+  int _gridLength() {
+    if (_carpetaActual != null) return _pictogramasCarpeta.length;
+    return _palabrasFrecuentes.length + _carpetas.length;
+  }
+
+  bool _mismaSeccion(int a, int b) {
+    if (_carpetaActual != null) return true;
+    final limite = _palabrasFrecuentes.length;
+    return (a < limite && b < limite) || (a >= limite && b >= limite);
+  }
+
+  void _swapItems(int from, int to) {
+    if (from == to) return;
+    if (!_mismaSeccion(from, to)) return;
+
+    setState(() {
+      if (_carpetaActual != null) {
+        final temp = _pictogramasCarpeta[from];
+        _pictogramasCarpeta[from] = _pictogramasCarpeta[to];
+        _pictogramasCarpeta[to] = temp;
+      } else if (from < _palabrasFrecuentes.length) {
+        final temp = _palabrasFrecuentes[from];
+        _palabrasFrecuentes[from] = _palabrasFrecuentes[to];
+        _palabrasFrecuentes[to] = temp;
+      } else {
+        final f = from - _palabrasFrecuentes.length;
+        final t = to - _palabrasFrecuentes.length;
+        final temp = _carpetas[f];
+        _carpetas[f] = _carpetas[t];
+        _carpetas[t] = temp;
+      }
+    });
+  }
+
+  Future<void> _guardarOrden() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_carpetaActual != null) {
+      final clave = 'orden_pictos_${_carpetaActual!.nombre}';
+      await prefs.setStringList(clave, _pictogramasCarpeta.map((p) => p.palabra).toList());
+    } else {
+      await prefs.setStringList('orden_palabras', _palabrasFrecuentes.map((p) => p.palabra).toList());
+      await prefs.setStringList('orden_carpetas', _carpetas.map((c) => c.nombre).toList());
+    }
+  }
+
+  Future<void> _cargarOrden() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final ordenPalabras = prefs.getStringList('orden_palabras');
+    if (ordenPalabras != null) {
+      final ordenado = <Pictograma>[];
+      for (final palabra in ordenPalabras) {
+        final encontrado = _palabrasFrecuentes.where((p) => p.palabra == palabra).toList();
+        if (encontrado.isNotEmpty) ordenado.add(encontrado.first);
+      }
+      for (final p in _palabrasFrecuentes) {
+        if (!ordenado.contains(p)) ordenado.add(p);
+      }
+      if (ordenado.length == _palabrasFrecuentes.length) {
+        _palabrasFrecuentes = ordenado;
+      }
+    }
+
+    final ordenCarpetas = prefs.getStringList('orden_carpetas');
+    if (ordenCarpetas != null) {
+      final ordenado = <CarpetaCAA>[];
+      for (final nombre in ordenCarpetas) {
+        final encontrado = _carpetas.where((c) => c.nombre == nombre).toList();
+        if (encontrado.isNotEmpty) ordenado.add(encontrado.first);
+      }
+      for (final c in _carpetas) {
+        if (!ordenado.contains(c)) ordenado.add(c);
+      }
+      if (ordenado.length == _carpetas.length) {
+        _carpetas = ordenado;
+      }
+    }
+  }
+
+  Future<void> _cargarOrdenCarpeta(String nombreCarpeta) async {
+    final prefs = await SharedPreferences.getInstance();
+    final clave = 'orden_pictos_$nombreCarpeta';
+    final orden = prefs.getStringList(clave);
+    if (orden == null || orden.isEmpty) return;
+    final ordenado = <Pictograma>[];
+    for (final palabra in orden) {
+      final encontrado = _pictogramasCarpeta.where((p) => p.palabra == palabra).toList();
+      if (encontrado.isNotEmpty) ordenado.add(encontrado.first);
+    }
+    for (final p in _pictogramasCarpeta) {
+      if (!ordenado.contains(p)) ordenado.add(p);
+    }
+    if (ordenado.length == _pictogramasCarpeta.length && mounted) {
+      setState(() => _pictogramasCarpeta = ordenado);
+    }
   }
 
   void _agregarPictograma(Pictograma pic) {
@@ -700,6 +904,19 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                 onTap: _mostrarSelectorDeVoz,
               ),
 
+              _HeaderButton(
+                isDark: isDark,
+                isMobile: isMobile,
+                isMobileLandscape: isMobileLandscape,
+                icon: _isReordering ? Icons.check_rounded : Icons.grid_view_rounded,
+                label: isMobile ? null : (_isReordering ? 'Listo' : 'Ordenar'),
+                color: _isReordering ? Colors.greenAccent.shade400 : Colors.orangeAccent.shade400,
+                bg: _isReordering
+                    ? Colors.greenAccent.withOpacity(0.12)
+                    : isDark ? Colors.orangeAccent.withOpacity(0.12) : Colors.orange.shade50,
+                onTap: _toggleReorder,
+              ),
+
               const ThemeToggleButton(),
               _HeaderButton(
                 isDark: isDark,
@@ -929,14 +1146,14 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _construirGrillaPrincipal(bool isDark, bool isMobile, bool isMobileLandscape) {
-    final int itemCount = _carpetaActual == null
-        ? _palabrasFrecuentes.length + _carpetas.length
-        : _carpetaActual!.pictogramas.length;
+    final int itemCount = _gridLength();
 
     return Expanded(
       child: GridView.builder(
-        physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics()),
+        physics: _isReordering
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
         padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 12 : 16, 
             vertical: isMobileLandscape ? 6 : 10
@@ -951,6 +1168,12 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         itemBuilder: (context, index) {
           final double start = (index / itemCount).clamp(0.0, 0.7);
           final double end = (start + 0.3).clamp(0.0, 1.0);
+          Widget cell = _construirElementoGrilla(index, isDark, isMobile, isMobileLandscape);
+
+          if (_isReordering) {
+            cell = _wrapReorderable(index, cell, isDark, isMobile, isMobileLandscape);
+          }
+
           return AnimatedBuilder(
             animation: _gridIntroController,
             builder: (context, child) {
@@ -964,20 +1187,89 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                     scale: t.clamp(0.0, 1.15), child: child),
               );
             },
-            child: _construirElementoGrilla(index, isDark, isMobile, isMobileLandscape),
+            child: cell,
           );
         },
       ),
     );
   }
 
+  Widget _wrapReorderable(int index, Widget child, bool isDark, bool isMobile, bool isMobileLandscape) {
+    final isBeingDragged = _draggedIndex == index;
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => _mismaSeccion(details.data, index),
+      onAcceptWithDetails: (details) => _swapItems(details.data, index),
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty && _draggedIndex != null && _draggedIndex != index;
+
+        return MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: LongPressDraggable<int>(
+          data: index,
+          delay: const Duration(milliseconds: 200),
+          feedback: Material(
+            elevation: 12,
+            borderRadius: BorderRadius.circular(20),
+            shadowColor: Colors.black38,
+            child: SizedBox(
+              width: isMobile ? 100 : 165,
+              height: isMobile ? 100 : 165,
+              child: child,
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.25, child: child),
+          onDragStarted: () => setState(() => _draggedIndex = index),
+          onDragEnd: (_) => setState(() => _draggedIndex = null),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: isHovered
+                  ? Border.all(color: Colors.blueAccent, width: 3)
+                  : null,
+              color: isHovered
+                  ? Colors.blueAccent.withOpacity(0.12)
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                child,
+                if (!isBeingDragged)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.black54
+                            : Colors.white.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: isMobile ? 14 : 18,
+                        color: isDark ? Colors.white70 : Colors.blueGrey,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ), // MouseRegion
+        );
+      },
+    );
+  }
+
   Widget _construirElementoGrilla(int index, bool isDark, bool isMobile, bool isMobileLandscape) {
     if (_carpetaActual != null) {
-      final pic = _carpetaActual!.pictogramas[index];
+      final pic = _pictogramasCarpeta[index];
       return TarjetaSquish3D(
         pic: pic,
         isLocked: false,
-        onTap: () => _agregarPictograma(pic),
+        onTap: _isReordering ? () {} : () => _agregarPictograma(pic),
         isDark: isDark,
         isMobile: isMobile,
         isMobileLandscape: isMobileLandscape,
@@ -988,7 +1280,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
       return TarjetaSquish3D(
         pic: pic,
         isLocked: false,
-        onTap: () => _agregarPictograma(pic),
+        onTap: _isReordering ? () {} : () => _agregarPictograma(pic),
         isDark: isDark,
         isMobile: isMobile,
         isMobileLandscape: isMobileLandscape,
@@ -998,7 +1290,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     return TarjetaCarpeta3D(
       carpeta: carpeta,
       isLocked: carpeta.esProOnly && !context.read<UserProvider>().isPro,
-      onTap: () => _abrirCarpeta(carpeta),
+      onTap: _isReordering ? () {} : () => _abrirCarpeta(carpeta),
       isDark: isDark,
       isMobile: isMobile,
       isMobileLandscape: isMobileLandscape,

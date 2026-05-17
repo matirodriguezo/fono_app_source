@@ -19,9 +19,9 @@ void main() {
     final pic = Pictograma(
       palabra: 'Test',
       rutaImagen: 'assets/test.png',
-      categoria: CategoriaCAA.social,
+      categoria: CategoriaCAA.emocion,
     );
     expect(pic.palabra, 'Test');
-    expect(pic.categoria, CategoriaCAA.social);
+    expect(pic.categoria, CategoriaCAA.emocion);
   });
 }

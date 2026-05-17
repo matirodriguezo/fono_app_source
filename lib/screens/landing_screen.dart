@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
+import 'package:video_player/video_player.dart'; // NUEVA IMPORTACIÓN
 import 'login_screen.dart';
 import 'register_screen.dart';
 import '../providers/theme_provider.dart';
@@ -17,17 +18,21 @@ class LandingScreen extends StatefulWidget {
 
 class _LandingScreenState extends State<LandingScreen> with TickerProviderStateMixin {
   late AnimationController _entryController;
-  bool _ctaLoading = false; 
+  bool _ctaLoading = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _showStickyCta = false;
 
   @override
   void initState() {
     super.initState();
     _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..forward();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _entryController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -37,6 +42,13 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
     Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
     await Future.delayed(const Duration(milliseconds: 600));
     if (mounted) setState(() => _ctaLoading = false);
+  }
+
+  void _onScroll() {
+    final show = _scrollController.hasClients && _scrollController.offset > 400;
+    if (show != _showStickyCta) {
+      setState(() => _showStickyCta = show);
+    }
   }
 
   @override
@@ -103,7 +115,9 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
               horizontalAmplitude: 80,
               verticalAmplitude: 120,
             ),
-            child: SingleChildScrollView(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               child: SafeArea(
                     child: Center(
@@ -152,6 +166,17 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                                   _FadeSlide(controller: _entryController, interval: const Interval(0.5, 0.9), child: _TarjetaPasoGlass(emoji: '🔊', titulo: '3. Hazte escuchar', desc: 'Motor de voz fluido y clínicamente calibrado.', isDark: isDark)),
                                 ],
                               ),
+                              const SizedBox(height: 60),
+
+                              // DEMO SHOWCASE
+                              _FadeSlide(
+                                controller: _entryController, interval: const Interval(0.55, 0.9, curve: Curves.easeOutCubic),
+                                child: _DemoShowcase(
+                                  isDark: isDark,
+                                  isMobile: isMobile,
+                                  onTap: _irARegistro,
+                                ),
+                              ),
                               const SizedBox(height: 90),
 
                               // PRECIOS
@@ -172,6 +197,13 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                                   _FadeSlide(controller: _entryController, interval: const Interval(0.8, 1.0), child: _TarjetaPlanGlass(titulo: 'Plan PRO', precio: 'Premium', emoji: '👑', colorPrimario: Colors.amber.shade500, items: const ['Todas las funciones DEMO incluidas', '+80 pictogramas clínicos', 'Carpetas avanzadas: Lugares, Comida', 'Construcción de oraciones complejas'], isDark: isDark, esPro: true)),
                                 ],
                               ),
+                              const SizedBox(height: 60),
+
+                              // TESTIMONIOS
+                              _FadeSlide(
+                                controller: _entryController, interval: const Interval(0.83, 1.0, curve: Curves.easeOutCubic),
+                                child: _TestimonialCarousel(isDark: isDark),
+                              ),
                               const SizedBox(height: 80),
 
                               // CTA FINAL
@@ -190,6 +222,20 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                       ),
                     ),
                   ),
+            ),
+              if (_showStickyCta)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 24,
+                  child: _StickyCtaButton(
+                    isLoading: _ctaLoading,
+                    onTap: _irARegistro,
+                    isDark: isDark,
+                    isMobile: isMobile,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -372,4 +418,623 @@ class _BotonFlotanteMagicoState extends State<_BotonFlotanteMagico> {
       ),
     );
   }
+}
+
+class _StickyCtaButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool isLoading;
+  final bool isDark;
+  final bool isMobile;
+
+  const _StickyCtaButton({
+    required this.onTap,
+    this.isLoading = false,
+    required this.isDark,
+    required this.isMobile,
+  });
+
+  @override
+  State<_StickyCtaButton> createState() => _StickyCtaButtonState();
+}
+
+class _StickyCtaButtonState extends State<_StickyCtaButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 2),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _animController,
+        curve: Curves.easeOutCubic,
+      )),
+      child: FadeTransition(
+        opacity: _animController,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: EdgeInsets.symmetric(
+              horizontal: widget.isMobile ? 20 : 48,
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isMobile ? 4 : 8,
+              vertical: widget.isMobile ? 4 : 8,
+            ),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.95)
+                  : Colors.white.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(60),
+              border: Border.all(
+                color: widget.isDark
+                    ? Colors.white.withOpacity(0.15)
+                    : Colors.black.withOpacity(0.08),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Text(
+                      'Crea tu cuenta gratis',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: widget.isMobile ? 14 : 16,
+                        color: widget.isDark ? Colors.white : const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: widget.isLoading ? null : widget.onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: widget.isMobile ? 20 : 28,
+                      vertical: widget.isMobile ? 12 : 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 4,
+                    shadowColor: Colors.blueAccent.withOpacity(0.4),
+                  ),
+                  child: widget.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Registrarse',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: widget.isMobile ? 13 : 15,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NUEVO: DEMO SHOWCASE (Mockup de teléfono CON VIDEO)
+// ──────────────────────────────────────────────────────────────────────────────
+class _DemoShowcase extends StatefulWidget {
+  final bool isDark;
+  final bool isMobile;
+  final VoidCallback onTap;
+
+  const _DemoShowcase({
+    required this.isDark,
+    required this.isMobile,
+    required this.onTap,
+  });
+
+  @override
+  State<_DemoShowcase> createState() => _DemoShowcaseState();
+}
+
+class _DemoShowcaseState extends State<_DemoShowcase> {
+  late VideoPlayerController _videoController;
+  bool _isVideoInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Reemplaza con la ruta real de tu archivo de video
+    _videoController = VideoPlayerController.asset('assets/images/demo/demo_video.mp4')
+      ..initialize().then((_) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+        _videoController.setVolume(0.0); // Opcional: reproduce el video sin sonido
+        _videoController.setLooping(true); // Opcional: reproduce el video en bucle
+        _videoController.play();
+      }).catchError((error) {
+        debugPrint('Error inicializando video: $error');
+      });
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorSecundario = widget.isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade700;
+
+    return Column(
+      children: [
+        // Badge de la sección
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.blueAccent.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'ASÍ FUNCIONA',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+              letterSpacing: 1.5,
+              color: Colors.blueAccent,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Toca, arma y escucha',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: widget.isMobile ? 26 : 36,
+            fontWeight: FontWeight.w900,
+            color: widget.isDark ? Colors.white : const Color(0xFF1E293B),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Así de simple se construye una frase en FonoApp',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colorSecundario,
+            fontSize: widget.isMobile ? 14 : 16,
+          ),
+        ),
+        const SizedBox(height: 36),
+
+        // Mockup de teléfono
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: widget.isMobile ? 220 : 280,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(widget.isMobile ? 32 : 40),
+                border: Border.all(
+                  color: widget.isDark
+                      ? Colors.white.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.1),
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blueAccent.withOpacity(0.15),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.isMobile ? 24 : 32),
+                  color: widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Barra superior del teléfono
+                    Container(
+                      height: 24,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: widget.isDark ? Colors.white24 : Colors.black12,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // REPRODUCTOR DE VIDEO
+                    // ════════════════════════════════════════════════════════
+                    SizedBox(
+                      width: double.infinity,
+                      height: widget.isMobile ? 440 : 570,
+                      child: _isVideoInitialized
+                          ? SizedBox.expand(
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _videoController.value.size.width,
+                                  height: _videoController.value.size.height,
+                                  child: VideoPlayer(_videoController),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                    ),
+                    // ════════════════════════════════════════════════════════
+                    
+                    // Barra inferior del teléfono
+                    Container(
+                      height: 28,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: widget.isDark ? Colors.white24 : Colors.black12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NUEVO: CARRUSEL DE TESTIMONIOS
+// ──────────────────────────────────────────────────────────────────────────────
+class _TestimonialCarousel extends StatefulWidget {
+  final bool isDark;
+
+  const _TestimonialCarousel({required this.isDark});
+
+  @override
+  State<_TestimonialCarousel> createState() => _TestimonialCarouselState();
+}
+
+class _TestimonialCarouselState extends State<_TestimonialCarousel>
+    with SingleTickerProviderStateMixin {
+  late PageController _pageController;
+  late AnimationController _autoScrollController;
+  int _currentPage = 0;
+
+  final List<_Testimonio> _testimonios = const [
+    _Testimonio(
+      nombre: 'María G.',
+      rol: 'Mamá de Lucas (6 años)',
+      texto: 'Desde que usamos FonoApp, Lucas puede decirnos lo que quiere. El cambio en su autoestima ha sido increíble.',
+      iniciales: 'MG',
+    ),
+    _Testimonio(
+      nombre: 'Dra. Laura V.',
+      rol: 'Fonoaudióloga',
+      texto: 'Una herramienta clínicamente sólida. La uso con 15 pacientes y la respuesta ha sido extraordinaria.',
+      iniciales: 'LV',
+    ),
+    _Testimonio(
+      nombre: 'Carlos R.',
+      rol: 'Papá de Sofía (4 años)',
+      texto: 'Pasamos de señalar y frustrarnos a construir frases completas. El motor de voz es muy natural.',
+      iniciales: 'CR',
+    ),
+    _Testimonio(
+      nombre: 'Ana P.',
+      rol: 'Terapeuta Ocupacional',
+      texto: 'La organización por carpetas y el sistema PRO permiten una progresión terapéutica muy bien pensada.',
+      iniciales: 'AP',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.85);
+    _autoScrollController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat(reverse: false);
+    _autoScrollController.addListener(_autoAdvance);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _autoScrollController.removeListener(_autoAdvance);
+    _autoScrollController.dispose();
+    super.dispose();
+  }
+
+  void _autoAdvance() {
+    if (_autoScrollController.value >= 0.98) {
+      if (_currentPage < _testimonios.length - 1) {
+        _currentPage++;
+      } else {
+        _currentPage = 0;
+      }
+      _pageController.animateToPage(
+        _currentPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+      _autoScrollController.reset();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorSecundario = widget.isDark
+        ? Colors.blueGrey.shade300
+        : Colors.blueGrey.shade700;
+
+    return Column(
+      children: [
+        // Título
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.amber.withOpacity(0.3),
+            ),
+          ),
+          child: Text(
+            'LO QUE DICEN',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+              letterSpacing: 1.5,
+              color: Colors.amber.shade600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Historias que nos inspiran',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: widget.isDark ? Colors.white : const Color(0xFF1E293B),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Familias y profesionales que ya transformaron su comunicación',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colorSecundario,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Carrusel
+        SizedBox(
+          height: 220,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (page) {
+              setState(() => _currentPage = page);
+              _autoScrollController.reset();
+            },
+            itemCount: _testimonios.length,
+            itemBuilder: (context, index) {
+              return _buildTarjetaTestimonio(
+                index,
+                colorSecundario,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Indicadores de página
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _testimonios.length,
+            (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: _currentPage == i ? 28 : 8,
+              height: 8,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: _currentPage == i
+                    ? Colors.blueAccent
+                    : (widget.isDark
+                        ? Colors.white24
+                        : Colors.black12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTarjetaTestimonio(int index, Color colorSecundario) {
+    final t = _testimonios[index];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: widget.isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.white.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: widget.isDark
+              ? Colors.white.withOpacity(0.12)
+              : Colors.white,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar + Nombre
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.blueAccent.withOpacity(0.2),
+                    child: Text(
+                      t.iniciales,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.nombre,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            color: widget.isDark
+                                ? Colors.white
+                                : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        Text(
+                          t.rol,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorSecundario,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.format_quote_rounded,
+                    color: Colors.blueAccent.withOpacity(0.25),
+                    size: 32,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '"${t.texto}"',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: widget.isDark
+                      ? Colors.white70
+                      : Colors.blueGrey.shade700,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Testimonio {
+  final String nombre;
+  final String rol;
+  final String texto;
+  final String iniciales;
+
+  const _Testimonio({
+    required this.nombre,
+    required this.rol,
+    required this.texto,
+    required this.iniciales,
+  });
 }
