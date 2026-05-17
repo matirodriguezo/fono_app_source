@@ -108,14 +108,48 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   final docs = snapshot.data!.docs;
 
                   if (docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.group_off_rounded, size: 72, color: colorTexto.withOpacity(0.3)),
-                          const SizedBox(height: 16),
-                          Text('No hay usuarios registrados aún.', style: TextStyle(color: colorTexto.withOpacity(0.5), fontSize: 16)),
-                        ],
+                    return TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutBack,
+                      builder: (context, val, child) => Opacity(
+                        opacity: val.clamp(0.0, 1.0),
+                        child: Transform.translate(
+                          offset: Offset(0, 30 * (1 - val)),
+                          child: child,
+                        ),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.orange.withOpacity(0.12) : Colors.orange.withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.group_off_rounded, size: 72, color: isDark ? Colors.orange.shade300 : Colors.orange.shade700),
+                            ),
+                            const SizedBox(height: 20),
+                            Text('No hay usuarios registrados aún',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                color: colorTexto,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text('Los nuevos usuarios aparecerán aquí\ncuando se registren en la app',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorTexto.withOpacity(0.5),
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }

@@ -8,6 +8,7 @@ import '../services/tts_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
 import 'admin_panel_screen.dart';
+import 'landing_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/animated_gradient_background.dart';
 import '../widgets/theme_toggle_button.dart';
@@ -39,6 +40,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   bool _isReordering = false;
   int? _draggedIndex;
+  bool _lastItemExiting = false;
 
   @override
   void initState() {
@@ -153,6 +155,58 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     _gridIntroController.reset();
     _gridIntroController.forward();
     _precachePantallaActual();
+  }
+
+  void _confirmarCerrarSesion() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E293B)
+            : Colors.white,
+        title: Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 12),
+            const Text('Cerrar sesión',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
+            ),
+          ],
+        ),
+        content: const Text(
+          '¿Estás seguro que deseas cerrar sesión?',
+          style: TextStyle(fontSize: 16, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<UserProvider>().signOut();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LandingScreen()),
+                (_) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Aceptar',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _toggleReorder() {
@@ -373,28 +427,25 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   }
 
   void _borrarUltimo() {
-    if (_oracionActual.isNotEmpty) {
+    if (_oracionActual.isNotEmpty && !_lastItemExiting) {
       HapticFeedback.mediumImpact();
       
       _motorVoz.detener();
       if (_isSpeaking) {
         setState(() {
           _isSpeaking = false;
-          _indiceDestacado = null; // Apaga el brillo
+          _indiceDestacado = null;
         });
       }
 
-      setState(() => _oracionActual.removeLast());
+      setState(() => _lastItemExiting = true);
       _guardarOracion();
-      
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
+
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) setState(() {
+          _oracionActual.removeLast();
+          _lastItemExiting = false;
+        });
       });
     }
   }
@@ -556,13 +607,47 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                   ? [
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Center(
-                          child: Text(
-                            _motorVoz.usandoWebSpeech
-                                ? 'No se encontraron voces en español'
-                                : 'Buscando voces...\n\n(Si la lista sigue vacía, activa el motor nativo arriba)',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, height: 1.5),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeOutBack,
+                          builder: (context, val, child) => Opacity(
+                            opacity: val.clamp(0.0, 1.0),
+                            child: Transform.scale(scale: val.clamp(0.0, 1.0), child: child),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _motorVoz.usandoWebSpeech ? Icons.mic_off_rounded : Icons.hourglass_empty_rounded,
+                                size: 48,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _motorVoz.usandoWebSpeech
+                                    ? 'No se encontraron voces en español'
+                                    : 'Buscando voces...',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: isDark ? Colors.white70 : Colors.grey.shade600,
+                                ),
+                              ),
+                              if (!_motorVoz.usandoWebSpeech) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Si la lista sigue vacía, activa el motor nativo arriba',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
@@ -943,7 +1028,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                 bg: isDark
                     ? Colors.redAccent.withOpacity(0.12)
                     : Colors.red.shade50,
-                onTap: () => userProvider.signOut(),
+                onTap: _confirmarCerrarSesion,
               ),
             ],
           ),
@@ -996,14 +1081,17 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                         scrollDirection: Axis.horizontal,
                         itemCount: _oracionActual.length,
                         itemBuilder: (context, index) {
+                          final isExiting = _lastItemExiting && index == _oracionActual.length - 1;
                           return TweenAnimationBuilder<double>(
                             key: ValueKey('${_oracionActual[index].palabra}_$index'),
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.elasticOut,
-                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: Duration(milliseconds: isExiting ? 350 : 500),
+                            curve: isExiting ? Curves.easeIn : Curves.elasticOut,
+                            tween: Tween(begin: isExiting ? 1.0 : 0.0, end: isExiting ? 0.0 : 1.0),
                             builder: (context, val, child) =>
                                 Transform.translate(
-                              offset: Offset(0, 36 * (1 - val)),
+                              offset: isExiting
+                                  ? Offset(40 * (1 - val), -20 * (1 - val))
+                                  : Offset(0, 36 * (1 - val)),
                               child: Opacity(
                                 opacity: val.clamp(0.0, 1.0),
                                 child: Transform.scale(
@@ -1016,7 +1104,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                               isDark: isDark, 
                               isMobile: isMobile, 
                               isMobileLandscape: isMobileLandscape,
-                              isHighlighted: _indiceDestacado == index, // NUEVO: ¡Aquí conectamos el brillo!
+                              isHighlighted: _indiceDestacado == index,
                             ),
                           );
                         },
@@ -1147,6 +1235,28 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   Widget _construirGrillaPrincipal(bool isDark, bool isMobile, bool isMobileLandscape) {
     final int itemCount = _gridLength();
+
+    if (itemCount == 0) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.grid_view_rounded, size: 64,
+                color: isDark ? Colors.white24 : Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text('No hay pictogramas disponibles',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Expanded(
       child: GridView.builder(
@@ -1428,12 +1538,22 @@ class _EmptyPhraseHint extends StatelessWidget {
           ),
         ),
         SizedBox(height: isMobileLandscape ? 2 : (isMobile ? 6 : 10)),
-        Text(
-          '¡Arma tu frase mágica!',
-          style: TextStyle(
-            color: isDark ? Colors.white54 : Colors.grey.shade500,
-            fontSize: isMobileLandscape ? 11 : (isMobile ? 14 : 18),
-            fontWeight: FontWeight.w800,
+        ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [
+              isDark ? Colors.white38 : Colors.grey.shade400,
+              isDark ? Colors.white70 : Colors.grey.shade600,
+              isDark ? Colors.white38 : Colors.grey.shade400,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(bounds),
+          child: Text(
+            '¡Arma tu frase mágica!',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isMobileLandscape ? 11 : (isMobile ? 14 : 18),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -1461,7 +1581,11 @@ class _MiniTarjeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
+    return AnimatedScale(
+      scale: isHighlighted ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutBack,
+      child: AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
       height: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
@@ -1469,7 +1593,6 @@ class _MiniTarjeta extends StatelessWidget {
       decoration: BoxDecoration(
         color: pic.colorFondo,
         borderRadius: BorderRadius.circular(isMobileLandscape ? 10 : (isMobile ? 12 : 20)),
-        // Destello visual al ser hablado
         border: Border.all(
           color: isHighlighted ? const Color.fromARGB(255, 48, 45, 253) : Colors.white, 
           width: isHighlighted ? 3.5 : (isMobile ? 1.5 : 2.5)
@@ -1501,6 +1624,7 @@ class _MiniTarjeta extends StatelessWidget {
               ),
             )
           : _PictoFallback(pic: pic, isMobile: isMobile, isMobileLandscape: isMobileLandscape),
+      ),
     );
   }
 }
@@ -1967,9 +2091,41 @@ class _BotonHablarUltra extends StatefulWidget {
   State<_BotonHablarUltra> createState() => _BotonHablarUltraState();
 }
 
-class _BotonHablarUltraState extends State<_BotonHablarUltra> {
+class _BotonHablarUltraState extends State<_BotonHablarUltra>
+    with SingleTickerProviderStateMixin {
   bool _isPressed = false;
   bool _isHovered = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _pulseAnim = Tween(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _BotonHablarUltra oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isSpeaking && !oldWidget.isSpeaking) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.isSpeaking && oldWidget.isSpeaking) {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1990,7 +2146,24 @@ class _BotonHablarUltraState extends State<_BotonHablarUltra> {
         } : null,
         onTapUp: widget.onTap != null ? (_) => setState(() => _isPressed = false) : null,
         onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedScale(
+        child: AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            final pulse = _pulseAnim.value;
+            return Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(
+                    widget.isMobileLandscape ? 12 : (widget.isMobile ? 18 : 28)),
+                boxShadow: widget.isSpeaking ? [
+                  BoxShadow(
+                    color: Colors.greenAccent.withOpacity(0.15 + pulse * 0.25),
+                    blurRadius: 8 + pulse * 16,
+                    spreadRadius: pulse * 4,
+                  ),
+                ] : null,
+              ),
+              child: AnimatedScale(
           scale: _isPressed ? 0.92 : 1.0,
           duration: const Duration(milliseconds: 120),
           curve: Curves.easeOutBack,
@@ -2067,9 +2240,12 @@ class _BotonHablarUltraState extends State<_BotonHablarUltra> {
             ),
           ),
         ),
-      ),
     );
-  }
+  },
+),
+),
+);
+}
 }
 
 class _BotonControlUltra extends StatefulWidget {
