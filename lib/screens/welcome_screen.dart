@@ -155,11 +155,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                           const SizedBox(height: 16),
+                          _LoadingDots(isDark: isDark),
+                          const SizedBox(height: 8),
                           Text(
-                            'Prepara tu comunicación',
+                            'Preparando tu comunicación',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
+                              fontWeight: FontWeight.w500,
                               color: isDark
                                   ? Colors.blueGrey.shade300
                                   : Colors.blueGrey.shade600,
@@ -177,6 +180,67 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LoadingDots extends StatefulWidget {
+  final bool isDark;
+  const _LoadingDots({required this.isDark});
+
+  @override
+  State<_LoadingDots> createState() => _LoadingDotsState();
+}
+
+class _LoadingDotsState extends State<_LoadingDots>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final delay = i * 0.15;
+            final t = (_controller.value - delay).clamp(0.0, 1.0);
+            final pulse = (1 - (t * 4 - 2).abs()).clamp(0.0, 1.0);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Transform.scale(
+                scale: 0.5 + pulse * 0.5,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.isDark
+                        ? Colors.blueGrey.shade300
+                        : Colors.blueGrey.shade600,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

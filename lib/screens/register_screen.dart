@@ -286,6 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 isPassword: _obscureConfirm,
                                 onPasswordToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
                                 validador: (v) => v != _passwordController.text ? 'No coinciden' : null,
+                                onFieldSubmitted: _crearCuenta,
                               ),
                               const SizedBox(height: 40),
 
@@ -372,10 +373,12 @@ class _ConstruirCampoDeTexto extends StatefulWidget {
   final VoidCallback? onPasswordToggle;
   final String? Function(String?)? validador;
   final void Function(String)? onChanged;
+  final VoidCallback? onFieldSubmitted;
 
   const _ConstruirCampoDeTexto({
     required this.controller, required this.isDark, required this.icono, required this.label,
     this.isPassword = false, this.tipo = TextInputType.text, this.onPasswordToggle, this.validador, this.onChanged,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -403,6 +406,7 @@ class _ConstruirCampoDeTextoState extends State<_ConstruirCampoDeTexto> {
           keyboardType: widget.tipo,
           validator: widget.validador,
           onChanged: widget.onChanged,
+          onFieldSubmitted: widget.onFieldSubmitted != null ? (_) => widget.onFieldSubmitted!() : null,
           style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             labelText: widget.label,

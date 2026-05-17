@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import 'dart:ui';
 import '../models/pictograma.dart';
 import '../services/tts_service.dart';
 import '../providers/theme_provider.dart';
@@ -40,6 +41,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
 
   bool _isReordering = false;
   int? _draggedIndex;
+  int? _oracionDraggedIndex;
   bool _lastItemExiting = false;
 
   @override
@@ -223,84 +225,124 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   }
 
   void _mostrarAvisoReordenar(BuildContext ctx) {
-    OverlayEntry entry = OverlayEntry(
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
       builder: (context) => Material(
         color: Colors.transparent,
-        child: Center(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.elasticOut,
-            builder: (context, value, child) {
-              return Transform.scale(
-                scale: value,
-                child: Opacity(
-                  opacity: value.clamp(0.0, 1.0),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+        child: GestureDetector(
+          onTap: () {
+            if (entry.mounted) entry.remove();
+          },
+          child: Stack(
+            children: [
+              Container(color: Colors.black.withOpacity(0.35)),
+              Center(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.elasticOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Opacity(
+                        opacity: value.clamp(0.0, 1.0),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.08)
+                                  : Colors.white.withOpacity(0.75),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.9),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
+                                  blurRadius: 40,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blueAccent.withOpacity(0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.swap_vert_rounded, size: 28,
+                                          color: Colors.blueAccent.shade400),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Modo Ordenar',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 19,
+                                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Manten presionada una tarjeta\npara arrastrarla a otra posición',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                        color: isDark ? Colors.white70 : Colors.blueGrey.shade600,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _CountdownBar(
+                                      duration: const Duration(seconds: 3),
+                                      isDark: isDark,
+                                      onComplete: () {
+                                        if (entry.mounted) entry.remove();
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Toque en cualquier lugar para cerrar',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? Colors.white38 : Colors.blueGrey.shade400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.4),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.touch_app, size: 36, color: Colors.white),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Modo Ordenar',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 20,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Manten presionada una tarjeta\npara arrastrarla a otra posición',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                            color: Colors.white.withOpacity(0.9),
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
       ),
     );
 
     Overlay.of(ctx).insert(entry);
-    Future.delayed(const Duration(seconds: 4), () {
-      if (entry.mounted) entry.remove();
-    });
   }
 
   int _gridLength() {
@@ -334,6 +376,15 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
         _carpetas[f] = _carpetas[t];
         _carpetas[t] = temp;
       }
+    });
+  }
+
+  void _swapOracionItems(int from, int to) {
+    if (from == to) return;
+    setState(() {
+      final temp = _oracionActual[from];
+      _oracionActual[from] = _oracionActual[to];
+      _oracionActual[to] = temp;
     });
   }
 
@@ -429,6 +480,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _borrarUltimo() {
     if (_oracionActual.isNotEmpty && !_lastItemExiting) {
       HapticFeedback.mediumImpact();
+      SystemSound.play(SystemSoundType.click);
       
       _motorVoz.detener();
       if (_isSpeaking) {
@@ -453,6 +505,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
   void _borrarTodo() {
     if (_oracionActual.isNotEmpty) {
       HapticFeedback.heavyImpact();
+      SystemSound.play(SystemSoundType.alert);
       _motorVoz.detener();
       
       setState(() {
@@ -516,7 +569,8 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
     
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Row(
@@ -541,68 +595,6 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           child: ListView(
             physics: const BouncingScrollPhysics(),
             children: [
-              if (_motorVoz.webSpeechDisponible)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _motorVoz.usandoWebSpeech
-                        ? Colors.green.withOpacity(0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _motorVoz.usandoWebSpeech
-                          ? Colors.green.withOpacity(0.4)
-                          : (isDark ? Colors.white10 : Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _motorVoz.usandoWebSpeech
-                            ? Icons.check_circle
-                            : Icons.language,
-                        color: _motorVoz.usandoWebSpeech
-                            ? Colors.green
-                            : (isDark ? Colors.white54 : Colors.grey),
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Motor nativo del navegador',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 14,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              'Recomendado si las voces no aparecen',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? Colors.white38 : Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _motorVoz.usandoWebSpeech,
-                        activeColor: Colors.green,
-                        onChanged: (v) {
-                          setState(() {
-                            _motorVoz.setUsarWebSpeech(v);
-                          });
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
               ...voces.isEmpty
                   ? [
                       Padding(
@@ -638,7 +630,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                               if (!_motorVoz.usandoWebSpeech) ...[
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Si la lista sigue vacía, activa el motor nativo arriba',
+                                  'Asegúrate de tener voces instaladas en tu dispositivo',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 13,
@@ -679,6 +671,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                         leading: Icon(
                           esActual ? Icons.check_circle : Icons.volume_up_outlined,
                           color: esActual ? Colors.blueAccent : (isDark ? Colors.white30 : Colors.grey),
+                          size: 28,
                         ),
                         title: Text(
                           nombreStr,
@@ -695,12 +688,21 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                             fontSize: 12,
                           ),
                         ),
+                        trailing: esActual
+                            ? Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.blueAccent,
+                                ),
+                              )
+                            : null,
                         onTap: () async {
                           HapticFeedback.lightImpact();
                           await _motorVoz.cambiarVoz(voz);
-                          await _motorVoz.hablar("Voz seleccionada: ${voz['name']}. Hola.");
-                          setState(() {});
-                          Navigator.pop(ctx);
+                          await _motorVoz.hablar("Probando voz");
+                          setDialogState(() {});
                         },
                       ),
                     );
@@ -721,6 +723,7 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1099,12 +1102,18 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                                     child: child),
                               ),
                             ),
-                            child: _MiniTarjeta(
-                              pic: _oracionActual[index], 
-                              isDark: isDark, 
-                              isMobile: isMobile, 
+                            child: _wrapOracionReorderable(
+                              index: index,
+                              isDark: isDark,
+                              isMobile: isMobile,
                               isMobileLandscape: isMobileLandscape,
-                              isHighlighted: _indiceDestacado == index,
+                              child: _MiniTarjeta(
+                                pic: _oracionActual[index], 
+                                isDark: isDark, 
+                                isMobile: isMobile, 
+                                isMobileLandscape: isMobileLandscape,
+                                isHighlighted: _indiceDestacado == index,
+                              ),
                             ),
                           );
                         },
@@ -1301,6 +1310,82 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
           );
         },
       ),
+    );
+  }
+
+  Widget _wrapOracionReorderable({
+    required int index,
+    required bool isDark,
+    required bool isMobile,
+    required bool isMobileLandscape,
+    required Widget child,
+  }) {
+    if (!_isReordering) return child;
+
+    final isBeingDragged = _oracionDraggedIndex == index;
+
+    return DragTarget<int>(
+      onAcceptWithDetails: (details) => _swapOracionItems(details.data, index),
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty && _oracionDraggedIndex != null && _oracionDraggedIndex != index;
+
+        return MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: LongPressDraggable<int>(
+            data: index,
+            delay: const Duration(milliseconds: 200),
+            feedback: Material(
+              elevation: 12,
+              borderRadius: BorderRadius.circular(20),
+              shadowColor: Colors.black38,
+              child: SizedBox(
+                width: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
+                height: isMobileLandscape ? 45 : (isMobile ? 55 : 100),
+                child: child,
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.25, child: child),
+            onDragStarted: () => setState(() => _oracionDraggedIndex = index),
+            onDragEnd: (_) => setState(() => _oracionDraggedIndex = null),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: isHovered
+                    ? Border.all(color: Colors.blueAccent, width: 3)
+                    : null,
+                color: isHovered
+                    ? Colors.blueAccent.withOpacity(0.12)
+                    : null,
+              ),
+              child: Stack(
+                children: [
+                  child,
+                  if (!isBeingDragged)
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.black54
+                              : Colors.white.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          Icons.drag_indicator,
+                          size: isMobile ? 12 : 14,
+                          color: isDark ? Colors.white70 : Colors.blueGrey,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -2243,9 +2328,67 @@ class _BotonHablarUltraState extends State<_BotonHablarUltra>
     );
   },
 ),
-),
-);
+      ),
+    );
+  }
 }
+
+class _CountdownBar extends StatefulWidget {
+  final Duration duration;
+  final VoidCallback onComplete;
+  final bool isDark;
+
+  const _CountdownBar({required this.duration, required this.onComplete, this.isDark = false});
+
+  @override
+  State<_CountdownBar> createState() => _CountdownBarState();
+}
+
+class _CountdownBarState extends State<_CountdownBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    )..addListener(() {
+        if (_controller.isCompleted) {
+          widget.onComplete();
+        }
+      });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: 1.0 - _controller.value,
+            backgroundColor: widget.isDark
+                ? Colors.white.withOpacity(0.12)
+                : Colors.blueGrey.shade100,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              widget.isDark ? Colors.white54 : Colors.blueAccent,
+            ),
+            minHeight: 6,
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _BotonControlUltra extends StatefulWidget {

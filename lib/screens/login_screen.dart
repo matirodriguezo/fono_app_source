@@ -200,6 +200,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               icono: Icons.lock_rounded,
                               label: 'Contraseña',
                               isPassword: true,
+                              onSubmitted: _iniciarSesion,
                             ),
                             const SizedBox(height: 40),
                             
@@ -298,6 +299,7 @@ class _ConstruirCampoDeTexto extends StatefulWidget {
   final String label;
   final bool isPassword;
   final TextInputType tipo;
+  final VoidCallback? onSubmitted;
 
   const _ConstruirCampoDeTexto({
     required this.controller,
@@ -306,6 +308,7 @@ class _ConstruirCampoDeTexto extends StatefulWidget {
     required this.label,
     this.isPassword = false,
     this.tipo = TextInputType.text,
+    this.onSubmitted,
   });
 
   @override
@@ -339,6 +342,7 @@ class _ConstruirCampoDeTextoState extends State<_ConstruirCampoDeTexto> {
           controller: widget.controller,
           obscureText: widget.isPassword,
           keyboardType: widget.tipo,
+          onSubmitted: widget.onSubmitted != null ? (_) => widget.onSubmitted!() : null,
           style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             labelText: widget.label,
