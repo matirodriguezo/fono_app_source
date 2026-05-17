@@ -254,18 +254,18 @@ class _TableroCAAScreenState extends State<TableroCAAScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? Colors.white.withOpacity(0.08)
-                                  : Colors.white.withOpacity(0.75),
+                                  ? const Color(0xFF1E1B4B).withOpacity(0.6)
+                                  : const Color(0xFFF3E8FF).withOpacity(0.7),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.15)
-                                    : Colors.white.withOpacity(0.9),
+                                    ? Colors.white.withOpacity(0.12)
+                                    : Colors.white.withOpacity(0.85),
                                 width: 2,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
+                                  color: const Color(0xFF1E1B4B).withOpacity(isDark ? 0.5 : 0.15),
                                   blurRadius: 40,
                                   offset: const Offset(0, 16),
                                 ),
